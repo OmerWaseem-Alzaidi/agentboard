@@ -1,90 +1,51 @@
 import { useEffect, useState } from 'react';
-import { db, initPowerSync } from './lib/powersync';
+import { initPowerSync } from './lib/powersync';
+import { KanbanBoard } from '@/components/ui/KanbanBoard';
+import { CreateTaskDialog } from '@/components/ui/CreateTaskDialog';
+import { Plus } from 'lucide-react';
 
 function App() {
   const [syncing, setSyncing] = useState(false);
-  const [taskCount, setTaskCount] = useState(0);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
-    initPowerSync().then(() => {
-      console.log('PowerSync initialized');
-      setSyncing(true);
-
-      // Watch for task count
-      (async () => {
-        for await (const result of db.watch('SELECT COUNT(*) as count FROM tasks', [])) {
-          const firstRow = result.rows?.item(0);
-          setTaskCount((firstRow as any)?.count ?? 0);
-        }
-      })();
-
-      // Watch for all tasks
-      (async () => {
-        for await (const result of db.watch('SELECT * FROM tasks ORDER BY created_at DESC', [])) {
-          const taskArray: any[] = [];
-          if (result.rows) {
-            for (let i = 0; i < result.rows.length; i++) {
-              taskArray.push(result.rows.item(i));
-            }
-          }
-          setTasks(taskArray);
-        }
-      })();
-    });
+    initPowerSync()
+      .then(() => setSyncing(true))
+      .catch((err: unknown) => console.error('PowerSync init failed', err));
   }, []);
 
-  const createTestTask = async () => {
-    await db.execute(
-      `INSERT INTO tasks (id, title, description, status, label, created_by, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      [
-        crypto.randomUUID(),
-        'Test Task ' + Math.floor(Math.random() * 1000),
-        'This is a test task created from the UI',
-        'todo',
-        'research',
-        'test-user'
-      ]
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-blue-600">
-          AgentBoard
-        </h1>
-        <p className="mt-4 text-gray-700">
-          Tailwind CSS: ✅
-        </p>
-        <p className="mt-2 text-gray-700">
-          PowerSync: {syncing ? '✅ Syncing!' : '⏳ Connecting...'}
-        </p>
-        <p className="mt-2 text-gray-700">
-          Tasks in database: {taskCount}
-        </p>
-
-        <button
-          onClick={createTestTask}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Create Test Task
-        </button>
-
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Tasks:</h2>
-          {tasks.map((task) => (
-            <div key={task.id} className="bg-white p-4 rounded-lg shadow mb-2">
-              <h3 className="font-bold">{task.title}</h3>
-              <p className="text-sm text-gray-600">{task.description}</p>
-              <p className="text-xs text-gray-400 mt-2">
-                Status: {task.status} | Label: {task.label}
-              </p>
-            </div>
-          ))}
+  if (!syncing) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-neutral-400 border-t-transparent mb-4" />
+          <h1 className="text-2xl font-light mb-2 text-neutral-100">AgentBoard</h1>
+          <p className="text-sm text-neutral-500">Connecting to PowerSync…</p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-950">
+      <div className="max-w-[1400px] mx-auto px-8 py-8">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-light text-neutral-100 mb-1">AgentBoard</h1>
+            <p className="text-neutral-500">AI-powered task management</p>
+          </div>
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-neutral-700/50 text-neutral-200 hover:bg-white/20 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">New Task</span>
+          </button>
+        </div>
+        <KanbanBoard />
+      </div>
+
+      <CreateTaskDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
