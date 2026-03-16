@@ -63,9 +63,14 @@ async function processAnalysisTasks() {
 
     const { text } = await generateText({
       model: anthropic('claude-haiku-4-5-20251001'),
-      prompt: `You are a data analyst.${contextBlock}Analyze: "${task.title}"
+      prompt: `You are a data analyst.${contextBlock}
 
-Context: ${task.description || 'No additional details provided'}
+YOUR TASK: Answer the analysis request directly. Do NOT respond with introductions, "I'm ready to assist", readiness confirmations, or asking for clarification. Perform the analysis NOW using the company context when provided, and return your findings.
+
+Topic to analyze: ${task.title}
+Request/Context: ${task.description || task.title || 'No additional details provided'}
+
+If company context is provided, extract and analyze the requested data (metrics, revenue, growth, positioning, etc.) from it. If the request cannot be fully answered from context, say so and provide what you can.
 
 CRITICAL FORMATTING RULES:
 - Use PLAIN TEXT ONLY - absolutely no markdown formatting

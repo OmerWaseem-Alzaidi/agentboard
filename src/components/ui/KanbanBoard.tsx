@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { db, updateInSupabase } from '@/lib/powersync';
 import { supabase } from '@/lib/supabase';
+import { getRecentlyDeletedIds, wasRecentlyDeleted } from '@/lib/deleted-tasks';
 import type { Task } from '@/types';
 import { KanbanColumn } from './KanbanColumn.tsx';
 import { TaskDetailDialog } from './TaskDetailDialog.tsx';
@@ -37,7 +38,9 @@ export function KanbanBoard() {
     done: [],
   });
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const allTasks = [...tasks.todo, ...tasks.in_progress, ...tasks.review, ...tasks.done];
+  const displayedTask = selectedTaskId ? allTasks.find((t) => t.id === selectedTaskId) ?? null : null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -64,39 +67,46 @@ export function KanbanBoard() {
             all.push(result.rows.item(i) as Task);
           }
         }
-        bucketTasks(all);
+        const skip = getRecentlyDeletedIds();
+        bucketTasks(all.filter((t) => !skip.has(t.id)));
       }
     })();
     return () => { cancelled = true; };
   }, [bucketTasks]);
 
-  // Supabase Realtime: listen for agent-side changes and sync to local DB
+  // Supabase Realtime: sync agent-side changes into local DB.
+  // Agents write directly to Supabase; PowerSync connector may have delay.
+  // Realtime ensures agent updates (status, description, chat) appear immediately.
   useEffect(() => {
     const channel = supabase
-      .channel('tasks-realtime')
+      .channel('agent-updates')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
         async (payload) => {
           try {
+            console.log('[Realtime] tasks event:', payload.eventType, payload.new ?? payload.old);
             if (payload.eventType === 'DELETE') {
-              const oldId = (payload.old as { id?: string }).id;
-              if (oldId) {
-                await db.execute('DELETE FROM tasks WHERE id = ?', [oldId]);
-              }
+              const oldId = (payload.old as { id?: string })?.id;
+              if (oldId) await db.execute('DELETE FROM tasks WHERE id = ?', [oldId]);
               return;
             }
-
             const row = payload.new as Record<string, unknown>;
-            if (!row.id) return;
-
+            if (!row?.id) return;
+            if (wasRecentlyDeleted(String(row.id))) return; // Don't re-insert deleted tasks
+            // When payload has no description (e.g. from our status-only update), fetch from Supabase to avoid overwriting agent output
+            let description = row.description != null && String(row.description).trim() ? row.description : null;
+            if (!description && row.assigned_to) {
+              const { data } = await supabase.from('tasks').select('description').eq('id', row.id).single();
+              if (data?.description) description = data.description;
+            }
             await db.execute(
               `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 row.id,
                 row.title ?? '',
-                row.description ?? null,
+                description ?? null,
                 row.status ?? 'todo',
                 row.label ?? null,
                 row.assigned_to ?? null,
@@ -106,49 +116,47 @@ export function KanbanBoard() {
               ]
             );
           } catch (err) {
-            console.error('Realtime sync error:', err);
+            console.error('Realtime tasks sync error:', err);
           }
         }
       )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  // Fallback poll: fetch from Supabase every 8s in case Realtime misses something
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const { data } = await supabase.from('tasks').select('*');
-        if (!data) return;
-        for (const row of data) {
-          await db.execute(
-            `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              row.id,
-              row.title ?? '',
-              row.description ?? null,
-              row.status ?? 'todo',
-              row.label ?? null,
-              row.assigned_to ?? null,
-              row.created_by ?? 'unknown',
-              row.created_at ?? new Date().toISOString(),
-              row.updated_at ?? new Date().toISOString(),
-            ]
-          );
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'task_messages' },
+        async (payload) => {
+          try {
+            console.log('[Realtime] task_messages event:', payload.eventType, payload.new ?? payload.old);
+            if (payload.eventType === 'DELETE') {
+              const oldId = (payload.old as { id?: string })?.id;
+              if (oldId) await db.execute('DELETE FROM task_messages WHERE id = ?', [oldId]);
+              return;
+            }
+            const row = payload.new as Record<string, unknown>;
+            if (!row?.id) return;
+            await db.execute(
+              `INSERT OR REPLACE INTO task_messages (id, task_id, sender, message, created_at)
+               VALUES (?, ?, ?, ?, ?)`,
+              [
+                row.id,
+                row.task_id ?? '',
+                row.sender ?? 'agent',
+                row.message ?? '',
+                row.created_at ?? new Date().toISOString(),
+              ]
+            );
+          } catch (err) {
+            console.error('Realtime task_messages sync error:', err);
+          }
         }
-      } catch (err) {
-        console.error('Poll sync error:', err);
-      }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] agent-updates channel:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    poll();
-    const interval = setInterval(poll, 8000);
-    return () => clearInterval(interval);
   }, []);
-
-  const allTasks = [...tasks.todo, ...tasks.in_progress, ...tasks.review, ...tasks.done];
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = allTasks.find(t => t.id === event.active.id);
@@ -187,7 +195,7 @@ export function KanbanBoard() {
             color={col.color}
             count={tasks[col.id as keyof TasksByStatus].length}
             tasks={tasks[col.id as keyof TasksByStatus]}
-            onTaskClick={setSelectedTask}
+            onTaskClick={(task) => setSelectedTaskId(task.id)}
           />
         ))}
       </div>
@@ -213,9 +221,9 @@ export function KanbanBoard() {
     </DndContext>
 
     <TaskDetailDialog
-      task={selectedTask}
-      open={selectedTask !== null}
-      onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
+      task={displayedTask}
+      open={selectedTaskId !== null}
+      onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}
     />
     </>
   );

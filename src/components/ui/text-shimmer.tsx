@@ -1,8 +1,15 @@
-import { useMemo, type JSX } from 'react';
+import { memo, useMemo, type JSX } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-interface TextShimmerProps {
+/**
+ * Shimmer component matching AI SDK Elements pattern:
+ * https://elements.ai-sdk.dev/components/shimmer
+ *
+ * Animated text shimmer for loading states. Uses text-transparent + background-clip
+ * for crisp rendering. Theme-aware via CSS custom properties.
+ */
+export interface TextShimmerProps {
   children: string;
   as?: React.ElementType;
   className?: string;
@@ -10,7 +17,7 @@ interface TextShimmerProps {
   spread?: number;
 }
 
-export function TextShimmer({
+function TextShimmerComponent({
   children,
   as: Component = 'p',
   className,
@@ -19,16 +26,20 @@ export function TextShimmer({
 }: TextShimmerProps) {
   const MotionComponent = motion(Component as keyof JSX.IntrinsicElements);
 
-  const dynamicSpread = useMemo(() => {
-    return children.length * spread;
-  }, [children, spread]);
+  const dynamicSpread = useMemo(
+    () => (children?.length ?? 0) * spread,
+    [children, spread]
+  );
 
   return (
     <MotionComponent
       className={cn(
-        'relative inline-block bg-[length:250%_100%,auto] bg-clip-text',
-        'text-transparent [--base-color:#71717a] [--base-gradient-color:#ffffff]',
-        '[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))] [background-repeat:no-repeat,padding-box]',
+        'relative inline-block bg-[length:250%_100%,auto] bg-clip-text bg-no-repeat',
+        'text-transparent',
+        // Theme-aware: base (visible on dark) + highlight (sweep) — AI SDK Elements pattern
+        '[--shimmer-base:#71717a] [--shimmer-highlight:#ffffff]',
+        '[--shimmer-gradient:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--shimmer-highlight),#0000_calc(50%+var(--spread)))]',
+        '[--bg-base:linear-gradient(var(--shimmer-base),var(--shimmer-base))]',
         className
       )}
       initial={{ backgroundPosition: '100% center' }}
@@ -41,7 +52,7 @@ export function TextShimmer({
       style={
         {
           '--spread': `${dynamicSpread}px`,
-          backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
+          backgroundImage: `var(--shimmer-gradient), var(--bg-base)`,
         } as React.CSSProperties
       }
     >
@@ -49,3 +60,5 @@ export function TextShimmer({
     </MotionComponent>
   );
 }
+
+export const TextShimmer = memo(TextShimmerComponent);

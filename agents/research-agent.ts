@@ -19,6 +19,7 @@ async function processResearchTasks() {
     .select('*')
     .eq('label', 'research')
     .eq('status', 'todo')
+    .is('assigned_to', null)
     .limit(1);
 
   if (!tasks || tasks.length === 0) {
@@ -57,10 +58,14 @@ async function processResearchTasks() {
 
     const result = await generateText({
       model,
-      prompt: `You are a research assistant.${contextBlock}Research this topic and provide comprehensive findings.
+      prompt: `You are a research assistant.${contextBlock}
+
+YOUR TASK: Answer the research request directly. Do NOT respond with introductions, "I'm ready to assist", or asking for clarification. Perform the research NOW using the company context when provided, and return your findings.
 
 Topic: ${task.title}
-Request: ${task.description || 'No additional details provided'}
+Request: ${task.description || task.title || 'No additional details provided'}
+
+If company context is provided, extract and summarize the requested data (metrics, revenue, growth, etc.) from it. If the request cannot be fully answered from context, say so and provide what you can.
 
 CRITICAL FORMATTING RULES:
 - Use PLAIN TEXT ONLY - absolutely no markdown formatting

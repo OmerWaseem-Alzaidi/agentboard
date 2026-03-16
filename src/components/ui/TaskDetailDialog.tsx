@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Task } from '@/types';
 import { db } from '@/lib/powersync';
 import { supabase } from '@/lib/supabase';
+import { markRecentlyDeleted } from '@/lib/deleted-tasks';
 import {
   Dialog,
   DialogContent,
@@ -84,17 +85,55 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [fetchedDescription, setFetchedDescription] = useState<string | null>(null);
+  const [fetchingDescription, setFetchingDescription] = useState(false);
+
+  // Fallback: agent tasks with no description may have stale local data. Fetch from Supabase.
+  useEffect(() => {
+    if (!open || !task?.id) {
+      setFetchedDescription(null);
+      setFetchingDescription(false);
+      return;
+    }
+    setFetchedDescription(null);
+    const isAgentDone = task.assigned_to && task.assigned_to !== 'test-user' && (task.status === 'review' || task.status === 'done');
+    if (!isAgentDone || task.description) {
+      setFetchingDescription(false);
+      return;
+    }
+    setFetchingDescription(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tasks').select('description').eq('id', task.id).single();
+        if (cancelled) return;
+        if (data?.description) {
+          setFetchedDescription(data.description);
+          await db.execute('UPDATE tasks SET description = ? WHERE id = ?', [data.description, task.id]);
+        }
+      } finally {
+        if (!cancelled) setFetchingDescription(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, task?.id, task?.assigned_to, task?.status, task?.description]);
 
   if (!task) return null;
 
+  const displayDescription = fetchedDescription ?? task.description;
   const isAgent = task.assigned_to && task.assigned_to !== 'test-user';
   const canChat = isAgent && (task.status === 'review' || task.status === 'done');
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await db.execute('DELETE FROM tasks WHERE id = ?', [task.id]);
-      await supabase.from('tasks').delete().eq('id', task.id);
+      const taskId = task.id;
+      // 1. Delete from PowerSync (uploadData will try to sync to Supabase)
+      await db.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
+      markRecentlyDeleted(taskId);
+      // 2. Also delete from Supabase directly - backup in case uploadData fails (e.g. Load failed).
+      // This stops PowerSync connector from re-pushing the task.
+      await supabase.from('tasks').delete().eq('id', taskId);
       setConfirming(false);
       onOpenChange(false);
     } catch (err) {
@@ -116,7 +155,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     <>
       <Dialog open={open && !showChat} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="pr-12">
             <div className="flex items-center gap-3 flex-wrap">
               <DialogTitle className="text-xl">{task.title}</DialogTitle>
               {task.label && labelTagStyles[task.label] && (
@@ -143,17 +182,23 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             </div>
           )}
 
-          {task.description ? (
+          {displayDescription ? (
             <div className="relative group">
               <pre className="bg-neutral-800/50 p-4 pr-12 rounded-lg text-sm text-neutral-300 whitespace-pre-wrap break-words font-sans leading-relaxed max-h-[50vh] overflow-y-auto border border-neutral-700/30">
-                {cleanMarkdown(task.description)}
+                {cleanMarkdown(displayDescription)}
               </pre>
               <CopyButton
-                content={cleanMarkdown(task.description!)}
+                content={cleanMarkdown(displayDescription)}
                 className="absolute top-3 right-3 p-2 rounded-md hover:bg-neutral-700/80 text-neutral-400 hover:text-neutral-200 transition-colors"
                 iconClassName="h-4 w-4"
               />
             </div>
+          ) : fetchingDescription ? (
+            <p className="text-sm text-neutral-500 italic">Loading description...</p>
+          ) : fetchingDescription ? (
+            <p className="text-sm text-neutral-500 italic">Loading description...</p>
+          ) : fetchingDescription ? (
+            <p className="text-sm text-neutral-500 italic">Loading description...</p>
           ) : (
             <p className="text-sm text-neutral-500 italic">No description</p>
           )}
