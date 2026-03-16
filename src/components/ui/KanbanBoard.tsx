@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { db, updateInSupabase } from '@/lib/powersync';
+import { supabase } from '@/lib/supabase';
 import type { Task } from '@/types';
 import { KanbanColumn } from './KanbanColumn.tsx';
 import { TaskDetailDialog } from './TaskDetailDialog.tsx';
@@ -42,6 +43,16 @@ export function KanbanBoard() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  const bucketTasks = useCallback((all: Task[]) => {
+    setTasks({
+      todo: all.filter(t => t.status === 'todo'),
+      in_progress: all.filter(t => t.status === 'in_progress'),
+      review: all.filter(t => t.status === 'review'),
+      done: all.filter(t => t.status === 'done'),
+    });
+  }, []);
+
+  // Watch local PowerSync DB for changes (instant for local writes)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -53,15 +64,88 @@ export function KanbanBoard() {
             all.push(result.rows.item(i) as Task);
           }
         }
-        setTasks({
-          todo: all.filter(t => t.status === 'todo'),
-          in_progress: all.filter(t => t.status === 'in_progress'),
-          review: all.filter(t => t.status === 'review'),
-          done: all.filter(t => t.status === 'done'),
-        });
+        bucketTasks(all);
       }
     })();
     return () => { cancelled = true; };
+  }, [bucketTasks]);
+
+  // Supabase Realtime: listen for agent-side changes and sync to local DB
+  useEffect(() => {
+    const channel = supabase
+      .channel('tasks-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        async (payload) => {
+          try {
+            if (payload.eventType === 'DELETE') {
+              const oldId = (payload.old as { id?: string }).id;
+              if (oldId) {
+                await db.execute('DELETE FROM tasks WHERE id = ?', [oldId]);
+              }
+              return;
+            }
+
+            const row = payload.new as Record<string, unknown>;
+            if (!row.id) return;
+
+            await db.execute(
+              `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                row.id,
+                row.title ?? '',
+                row.description ?? null,
+                row.status ?? 'todo',
+                row.label ?? null,
+                row.assigned_to ?? null,
+                row.created_by ?? 'unknown',
+                row.created_at ?? new Date().toISOString(),
+                row.updated_at ?? new Date().toISOString(),
+              ]
+            );
+          } catch (err) {
+            console.error('Realtime sync error:', err);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Fallback poll: fetch from Supabase every 8s in case Realtime misses something
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const { data } = await supabase.from('tasks').select('*');
+        if (!data) return;
+        for (const row of data) {
+          await db.execute(
+            `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              row.id,
+              row.title ?? '',
+              row.description ?? null,
+              row.status ?? 'todo',
+              row.label ?? null,
+              row.assigned_to ?? null,
+              row.created_by ?? 'unknown',
+              row.created_at ?? new Date().toISOString(),
+              row.updated_at ?? new Date().toISOString(),
+            ]
+          );
+        }
+      } catch (err) {
+        console.error('Poll sync error:', err);
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const allTasks = [...tasks.todo, ...tasks.in_progress, ...tasks.review, ...tasks.done];

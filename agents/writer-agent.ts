@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { createClient } from '@supabase/supabase-js';
+import { getCompanyContext } from './get-company-context';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -36,7 +37,6 @@ async function processWritingTasks() {
   console.log(`📋 Found task: "${task.title}"`);
 
   try {
-    // Claim the task
     await supabase
       .from('tasks')
       .update({
@@ -55,25 +55,51 @@ async function processWritingTasks() {
 
     console.log('🤖 Writing content with Claude AI...');
 
-    // Call Claude API
+    const companyContext = await getCompanyContext();
+
+    const contextBlock = companyContext
+      ? `\n\nCOMPANY CONTEXT (use this to make the content company-specific):\n${companyContext}\n\n`
+      : '';
+
     const { text } = await generateText({
-      model: anthropic('claude-sonnet-4-20250514'),
-      prompt: `You are a professional content writer. Write high-quality content for: "${task.title}"
+      model: anthropic('claude-haiku-4-5-20251001'),
+      prompt: `You are a professional content writer.${contextBlock}Write high-quality content for: "${task.title}"
 
-Original request: ${task.description || 'No additional details provided'}
+Request: ${task.description || 'No additional details provided'}
 
-Provide well-structured, engaging content in PLAIN TEXT format (no markdown). Structure your response as:
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol
+- DO NOT use any markdown syntax whatsoever
+${companyContext ? '- Tailor the content to the company context when relevant.' : ''}
 
-- Start with "WRITTEN CONTENT" as the header
-- Include an engaging INTRODUCTION (2-3 sentences)
-- Include MAIN CONTENT section with 3-4 clear paragraphs
-- Include KEY POINTS section with bullet points (use • symbol)
-- End with a brief CONCLUSION paragraph
+Structure your response as:
 
-Keep it professional and engaging (max 600 words). Use clear language. No hashtags, asterisks, or markdown formatting.`,
+WRITTEN CONTENT
+
+INTRODUCTION
+
+[2-3 engaging sentences]
+
+MAIN CONTENT
+
+[3-4 clear paragraphs]
+
+KEY POINTS
+
+• Point one
+• Point two
+• Point three
+
+CONCLUSION
+
+[Brief conclusion paragraph]
+
+Keep it professional and engaging (max 600 words). Use clear, natural language.`,
     });
 
-    // Update task with results
     await supabase
       .from('tasks')
       .update({
@@ -94,8 +120,7 @@ Keep it professional and engaging (max 600 words). Use clear language. No hashta
 
   } catch (error: any) {
     console.error('❌ Error:', error.message);
-    
-    // Reset task on failure
+
     await supabase
       .from('tasks')
       .update({
@@ -107,7 +132,6 @@ Keep it professional and engaging (max 600 words). Use clear language. No hashta
   }
 }
 
-// Run every 30 seconds
 console.log('🚀 Writer Agent started');
 setInterval(processWritingTasks, 30000);
 processWritingTasks();
