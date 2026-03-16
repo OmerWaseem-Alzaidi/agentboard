@@ -26,10 +26,28 @@ const agent_logs = new Table({
   created_at: column.text
 });
 
+const task_messages = new Table({
+  task_id: column.text,
+  sender: column.text,
+  message: column.text,
+  created_at: column.text
+});
+
+const company_knowledge = new Table({
+  filename: column.text,
+  file_type: column.text,
+  storage_path: column.text,
+  content_text: column.text,
+  uploaded_by: column.text,
+  created_at: column.text
+});
+
 export const AppSchema = new Schema({
   tasks,
   task_updates,
-  agent_logs
+  agent_logs,
+  task_messages,
+  company_knowledge
 });
 
 export type Database = (typeof AppSchema)['types'];

@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { initPowerSync } from './lib/powersync';
 import { KanbanBoard } from '@/components/ui/KanbanBoard';
 import { CreateTaskDialog } from '@/components/ui/CreateTaskDialog';
-import { Plus } from 'lucide-react';
+import { KnowledgeBaseDialog } from '@/components/ui/KnowledgeBaseDialog';
+import { Plus, Database } from 'lucide-react';
 
 function App() {
   const [syncing, setSyncing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
 
   useEffect(() => {
     initPowerSync()
@@ -34,18 +36,28 @@ function App() {
             <h1 className="text-4xl font-light text-neutral-100 mb-1">AgentBoard</h1>
             <p className="text-neutral-500">AI-powered task management</p>
           </div>
-          <button
-            onClick={() => setDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-neutral-700/50 text-neutral-200 hover:bg-white/20 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">New Task</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setKbOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-neutral-700/50 text-neutral-400 hover:bg-white/10 hover:text-neutral-200 transition-colors"
+            >
+              <Database className="w-4 h-4" />
+              <span className="text-sm font-medium">Knowledge Base</span>
+            </button>
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-neutral-700/50 text-neutral-200 hover:bg-white/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">New Task</span>
+            </button>
+          </div>
         </div>
         <KanbanBoard />
       </div>
 
       <CreateTaskDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <KnowledgeBaseDialog open={kbOpen} onOpenChange={setKbOpen} />
     </div>
   );
 }

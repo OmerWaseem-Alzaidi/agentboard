@@ -1,6 +1,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { createClient } from '@supabase/supabase-js';
+import { getCompanyContext } from './get-company-context';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -36,7 +37,6 @@ async function processAnalysisTasks() {
   console.log(`📋 Found task: "${task.title}"`);
 
   try {
-    // Claim the task
     await supabase
       .from('tasks')
       .update({
@@ -55,26 +55,55 @@ async function processAnalysisTasks() {
 
     console.log('🤖 Analyzing with Claude AI...');
 
-    // Call Claude API
+    const companyContext = await getCompanyContext();
+
+    const contextBlock = companyContext
+      ? `\n\nCOMPANY CONTEXT (use this data for company-specific analysis):\n${companyContext}\n\n`
+      : '';
+
     const { text } = await generateText({
-      model: anthropic('claude-sonnet-4-20250514'),
-      prompt: `You are a data analyst. Analyze: "${task.title}"
+      model: anthropic('claude-haiku-4-5-20251001'),
+      prompt: `You are a data analyst.${contextBlock}Analyze: "${task.title}"
 
 Context: ${task.description || 'No additional details provided'}
 
-Provide thorough analysis in PLAIN TEXT format (no markdown). Structure your response as:
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol
+- DO NOT use any markdown syntax whatsoever
+${companyContext ? '- Ground your analysis in the company context when relevant.' : ''}
 
-- Start with "ANALYSIS RESULTS" as the header
-- Include EXECUTIVE SUMMARY (2-3 sentences)
-- Include DETAILED ANALYSIS section with 3-4 paragraphs examining the topic
-- Include KEY METRICS & INSIGHTS section with bullet points (use • symbol)
-- Include RECOMMENDATIONS section with actionable insights
-- End with CONCLUSION paragraph
+Structure your response as:
 
-Be data-driven and objective (max 600 words). Use clear language. No hashtags, asterisks, or markdown formatting.`,
+ANALYSIS RESULTS
+
+EXECUTIVE SUMMARY
+
+[2-3 sentences]
+
+DETAILED ANALYSIS
+
+[3-4 paragraphs examining the topic]
+
+KEY METRICS AND INSIGHTS
+
+• Metric or insight one
+• Metric or insight two
+• Metric or insight three
+
+RECOMMENDATIONS
+
+[Actionable insights paragraph]
+
+CONCLUSION
+
+[Conclusion paragraph]
+
+Be data-driven and objective (max 600 words). Use clear, natural language.`,
     });
 
-    // Update task with results
     await supabase
       .from('tasks')
       .update({
@@ -95,8 +124,7 @@ Be data-driven and objective (max 600 words). Use clear language. No hashtags, a
 
   } catch (error: any) {
     console.error('❌ Error:', error.message);
-    
-    // Reset task on failure
+
     await supabase
       .from('tasks')
       .update({
@@ -108,7 +136,6 @@ Be data-driven and objective (max 600 words). Use clear language. No hashtags, a
   }
 }
 
-// Run every 30 seconds
 console.log('🚀 Analyst Agent started');
 setInterval(processAnalysisTasks, 30000);
 processAnalysisTasks();

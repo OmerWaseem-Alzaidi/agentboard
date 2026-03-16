@@ -1,38 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
+import { getCompanyContext } from './get-company-context';
 
-// Initialize Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Initialize Anthropic model
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-const model = anthropic('claude-sonnet-4-20250514');
+const model = anthropic('claude-haiku-4-5-20251001');
 
-// Process research tasks
 async function processResearchTasks() {
   console.log('🔍 Checking for research tasks...');
-  
-  // Find research tasks in 'todo' status
+
   const { data: tasks } = await supabase
     .from('tasks')
     .select('*')
     .eq('label', 'research')
     .eq('status', 'todo')
     .limit(1);
-  
+
   if (!tasks || tasks.length === 0) {
     console.log('   No research tasks found');
     return;
   }
-  
+
   const task = tasks[0];
   console.log(`📋 Found task: "${task.title}"`);
-  
-  // Mark as in progress
+
   await supabase
     .from('tasks')
     .update({
@@ -41,7 +37,7 @@ async function processResearchTasks() {
       updated_at: new Date().toISOString()
     })
     .eq('id', task.id);
-  
+
   await supabase.from('agent_logs').insert({
     id: crypto.randomUUID(),
     agent_name: 'research_agent',
@@ -49,71 +45,91 @@ async function processResearchTasks() {
     task_id: task.id,
     created_at: new Date().toISOString()
   });
-  
+
   console.log('🤖 Processing with Claude AI...');
-  
+
   try {
-    // Use AI SDK to generate research
+    const companyContext = await getCompanyContext();
+
+    const contextBlock = companyContext
+      ? `\n\nCOMPANY CONTEXT (use this when relevant to the research):\n${companyContext}\n\n`
+      : '';
+
     const result = await generateText({
       model,
-      prompt: `You are a research assistant. Research this topic and provide comprehensive findings.
+      prompt: `You are a research assistant.${contextBlock}Research this topic and provide comprehensive findings.
 
 Topic: ${task.title}
-Details: ${task.description || 'No additional details provided'}
+Request: ${task.description || 'No additional details provided'}
 
-FORMATTING RULES (strict):
-- Output PLAIN TEXT only. No markdown whatsoever.
-- Do NOT use #, ##, **, *, ---, \`\`\`, or any markdown syntax.
-- Use ALL-CAPS for section headings on their own line (e.g. KEY FINDINGS).
-- Use "• " (bullet character) for list items, not dashes or asterisks.
-- Separate sections with a single blank line.
-- Keep it concise but thorough (300-500 words).
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol or just numbers
+- DO NOT use any markdown syntax whatsoever
+- Write in clear, readable paragraphs with natural structure
+${companyContext ? '- Reference the company context when relevant to give company-specific insights.' : ''}
 
 Structure your response as:
 
+RESEARCH RESULTS
+
+[Paragraph about the topic]
+
 KEY FINDINGS
-• finding one
-• finding two
+
+[2-3 paragraphs with findings]
 
 IMPORTANT INSIGHTS
-• insight one
+
+• First insight here
+• Second insight here
+• Third insight here
 
 RELEVANT DATA
-• data point one
+
+• Data point one
+• Data point two
 
 RECOMMENDATIONS
-• recommendation one`
+
+[Paragraph with recommendations]
+
+SUMMARY
+
+[Brief conclusion paragraph]
+
+Keep it concise (max 600 words). Use clear, natural language.`
     });
-    
-    // Update with results
+
     await supabase
       .from('tasks')
       .update({
         status: 'review',
-        description: `${task.description || task.title}\n\n🔍 RESEARCH RESULTS\n\n${result.text}`,
+        description: `${task.description || task.title}\n\nRESEARCH RESULTS\n\n${result.text}`,
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);
-    
+
     await supabase.from('agent_logs').insert({
       id: crypto.randomUUID(),
       agent_name: 'research_agent',
       action: 'completed',
       task_id: task.id,
-      details: { tokens: result.usage },
+      details: JSON.stringify({ tokens: result.usage }),
       created_at: new Date().toISOString()
     });
-    
+
     console.log('✅ Research completed! Task moved to Review.');
-    
+
   } catch (error: any) {
     console.error('❌ Error:', error.message);
-    
-    // Reset task to todo
+
     await supabase
       .from('tasks')
-      .update({ 
-        status: 'todo', 
+      .update({
+        status: 'todo',
         assigned_to: null,
         updated_at: new Date().toISOString()
       })
@@ -121,7 +137,6 @@ RECOMMENDATIONS
   }
 }
 
-// Run on a loop
 async function main() {
   console.log('🚀 Research Agent started');
   while (true) {

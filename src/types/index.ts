@@ -26,3 +26,21 @@ export interface Task {
     details: string | null;
     created_at: string;
   }
+
+  export interface TaskMessage {
+    id: string;
+    task_id: string;
+    sender: 'user' | 'agent';
+    message: string;
+    created_at: string;
+  }
+
+  export interface CompanyKnowledge {
+    id: string;
+    filename: string;
+    file_type: string;
+    storage_path: string;
+    content_text: string | null;
+    uploaded_by: string;
+    created_at: string;
+  }

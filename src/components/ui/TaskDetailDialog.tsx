@@ -12,7 +12,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Brain, Sparkles, Bot } from 'lucide-react';
+import { Brain, Sparkles, Bot, MessageSquare } from 'lucide-react';
+import { TaskChatDialog } from './TaskChatDialog.tsx';
+import { CopyButton } from './copy-button';
 
 const labelTagStyles: Record<string, string> = {
   research: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
@@ -81,10 +83,12 @@ interface TaskDetailDialogProps {
 export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   if (!task) return null;
 
   const isAgent = task.assigned_to && task.assigned_to !== 'test-user';
+  const canChat = isAgent && (task.status === 'review' || task.status === 'done');
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -101,75 +105,106 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   };
 
   const handleClose = (open: boolean) => {
-    if (!open) setConfirming(false);
+    if (!open) {
+      setConfirming(false);
+      setShowChat(false);
+    }
     onOpenChange(open);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-3 flex-wrap">
-            <DialogTitle className="text-xl">{task.title}</DialogTitle>
-            {task.label && labelTagStyles[task.label] && (
-              <Badge className={labelTagStyles[task.label]}>
-                {capitalize(task.label)}
+    <>
+      <Dialog open={open && !showChat} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3 flex-wrap">
+              <DialogTitle className="text-xl">{task.title}</DialogTitle>
+              {task.label && labelTagStyles[task.label] && (
+                <Badge className={labelTagStyles[task.label]}>
+                  {capitalize(task.label)}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {statusLabels[task.status] ?? task.status}
               </Badge>
-            )}
-            <Badge variant="secondary" className="text-xs">
-              {statusLabels[task.status] ?? task.status}
-            </Badge>
-          </div>
-        </DialogHeader>
+            </div>
+          </DialogHeader>
 
-        {isAgent && (
-          <div className="flex items-center gap-2">
-            <Avatar className={`h-6 w-6 ${getAgentColor(task.assigned_to!)}`} size="sm">
-              <AvatarFallback className="bg-transparent">
-                {getAgentIcon(task.assigned_to!)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm text-neutral-400 font-medium">
-              {formatAgentName(task.assigned_to!)}
-            </span>
-          </div>
-        )}
+          {isAgent && (
+            <div className="flex items-center gap-2">
+              <Avatar className={`h-6 w-6 ${getAgentColor(task.assigned_to!)}`} size="sm">
+                <AvatarFallback className="bg-transparent">
+                  {getAgentIcon(task.assigned_to!)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-neutral-400 font-medium">
+                {formatAgentName(task.assigned_to!)}
+              </span>
+            </div>
+          )}
 
-        {task.description ? (
-          <pre className="bg-neutral-800/50 p-4 rounded-lg text-sm text-neutral-300 whitespace-pre-wrap break-words font-sans leading-relaxed max-h-[50vh] overflow-y-auto border border-neutral-700/30">
-            {cleanMarkdown(task.description)}
-          </pre>
-        ) : (
-          <p className="text-sm text-neutral-500 italic">No description</p>
-        )}
-
-        <div className="border-t border-neutral-700/30 pt-3 flex items-center justify-between text-xs text-neutral-500">
-          <span>Created {formatDate(task.created_at)}</span>
-          <span>Updated {formatDate(task.updated_at)}</span>
-        </div>
-
-        <DialogFooter>
-          {confirming ? (
-            <div className="flex flex-col gap-2 w-full">
-              <p className="text-sm text-destructive font-medium">
-                Are you sure? This action cannot be undone.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setConfirming(false)} disabled={deleting}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-                  {deleting ? 'Deleting...' : 'Delete permanently'}
-                </Button>
-              </div>
+          {task.description ? (
+            <div className="relative group">
+              <pre className="bg-neutral-800/50 p-4 pr-12 rounded-lg text-sm text-neutral-300 whitespace-pre-wrap break-words font-sans leading-relaxed max-h-[50vh] overflow-y-auto border border-neutral-700/30">
+                {cleanMarkdown(task.description)}
+              </pre>
+              <CopyButton
+                content={cleanMarkdown(task.description!)}
+                className="absolute top-3 right-3 p-2 rounded-md hover:bg-neutral-700/80 text-neutral-400 hover:text-neutral-200 transition-colors"
+                iconClassName="h-4 w-4"
+              />
             </div>
           ) : (
-            <Button variant="destructive" onClick={() => setConfirming(true)}>
-              Delete Task
-            </Button>
+            <p className="text-sm text-neutral-500 italic">No description</p>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+          <div className="border-t border-neutral-700/30 pt-3 flex items-center justify-between text-xs text-neutral-500">
+            <span>Created {formatDate(task.created_at)}</span>
+            <span>Updated {formatDate(task.updated_at)}</span>
+          </div>
+
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {confirming ? (
+              <div className="flex flex-col gap-2 w-full">
+                <p className="text-sm text-destructive font-medium">
+                  Are you sure? This action cannot be undone.
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setConfirming(false)} disabled={deleting}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? 'Deleting...' : 'Delete permanently'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button variant="destructive" size="sm" onClick={() => setConfirming(true)}>
+                  Delete Task
+                </Button>
+                {canChat && (
+                  <Button size="sm" onClick={() => setShowChat(true)} className="gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Chat with Agent
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {showChat && (
+        <TaskChatDialog
+          task={task}
+          open={showChat}
+          onOpenChange={(open) => {
+            setShowChat(open);
+            if (!open) onOpenChange(true);
+          }}
+        />
+      )}
+    </>
   );
 }
