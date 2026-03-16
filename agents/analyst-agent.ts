@@ -52,6 +52,7 @@ async function processAnalysisTasks() {
     .eq('label', 'analysis')
     .eq('status', 'todo')
     .is('assigned_to', null)
+    .order('created_at', { ascending: true })
     .limit(1);
 
   if (error || !tasks || tasks.length === 0) {
@@ -92,14 +93,24 @@ async function processAnalysisTasks() {
 
     const response = await analystAgent.generate(prompt);
 
-    await supabase
+    const content = typeof response?.text === 'string' ? response.text : String(response?.text ?? '');
+    if (!content.trim()) {
+      throw new Error('Mastra agent returned empty content');
+    }
+
+    const { error: updateError } = await supabase
       .from('tasks')
       .update({
-        description: response.text,
+        description: content,
         status: 'review',
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);
+
+    if (updateError) {
+      console.error('❌ Failed to update task in Supabase:', updateError);
+      throw updateError;
+    }
 
     await supabase.from('agent_logs').insert({
       agent_name: 'analyst_agent',
