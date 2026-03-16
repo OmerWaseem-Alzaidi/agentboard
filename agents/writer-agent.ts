@@ -49,6 +49,7 @@ async function processWritingTasks() {
     .eq('label', 'writing')
     .eq('status', 'todo')
     .is('assigned_to', null)
+    .order('created_at', { ascending: true })
     .limit(1);
 
   if (error || !tasks || tasks.length === 0) {
@@ -89,16 +90,32 @@ async function processWritingTasks() {
 
     const response = await writerAgent.generate(prompt);
 
-    await supabase
+    const content = typeof response?.text === 'string' ? response.text : String(response?.text ?? '');
+    if (!content.trim()) {
+      throw new Error('Mastra agent returned empty content');
+    }
+
+    const { error: updateError } = await supabase
       .from('tasks')
       .update({
-        description: response.text,
+        description: content,
         status: 'review',
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);
 
-    await supabase.from('agent_logs').insert({
+    if (updateError) {
+      console.error('❌ Failed to update task in Supabase:', updateError);
+      throw updateError;
+    }
+
+    // Verify the update was applied (helps debug sync issues)
+    const { data: verify } = await supabase.from('tasks').select('status').eq('id', task.id).single();
+    if (verify?.status !== 'review') {
+      console.warn('⚠️ Task status in Supabase is', verify?.status, '- expected review');
+    }
+
+    const { error: logError } = await supabase.from('agent_logs').insert({
       agent_name: 'writer_agent',
       action: 'completed_task',
       task_id: task.id,

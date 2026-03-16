@@ -94,25 +94,35 @@ export function KanbanBoard() {
             const row = payload.new as Record<string, unknown>;
             if (!row?.id) return;
             if (wasRecentlyDeleted(String(row.id))) return; // Don't re-insert deleted tasks
-            // When payload has no description (e.g. from our status-only update), fetch from Supabase to avoid overwriting agent output
-            let description = row.description != null && String(row.description).trim() ? row.description : null;
-            if (!description && row.assigned_to) {
-              const { data } = await supabase.from('tasks').select('description').eq('id', row.id).single();
-              if (data?.description) description = data.description;
+
+            // For agent updates (assigned_to set): Realtime payload may omit status/description.
+            // Fetch full row from Supabase to ensure we apply correct status and description.
+            let merged = row;
+            if (row.assigned_to) {
+              const { data } = await supabase.from('tasks').select('*').eq('id', row.id).single();
+              if (data) merged = data as Record<string, unknown>;
             }
+
+            const status = merged.status != null && String(merged.status).trim()
+              ? merged.status
+              : 'todo';
+            const description = merged.description != null && String(merged.description).trim()
+              ? merged.description
+              : null;
+
             await db.execute(
               `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                row.id,
-                row.title ?? '',
+                merged.id,
+                merged.title ?? '',
                 description ?? null,
-                row.status ?? 'todo',
-                row.label ?? null,
-                row.assigned_to ?? null,
-                row.created_by ?? 'unknown',
-                row.created_at ?? new Date().toISOString(),
-                row.updated_at ?? new Date().toISOString(),
+                status,
+                merged.label ?? null,
+                merged.assigned_to ?? null,
+                merged.created_by ?? 'unknown',
+                merged.created_at ?? new Date().toISOString(),
+                merged.updated_at ?? new Date().toISOString(),
               ]
             );
           } catch (err) {

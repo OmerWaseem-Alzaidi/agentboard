@@ -12,6 +12,13 @@ const researchAgent = new Agent({
   name: 'Research Agent',
   instructions: `You are a research assistant for VersityApp.
 
+CRITICAL - CONTEXT USAGE:
+- Company context documents may contain BOTH factual data AND instruction/template text (e.g. "Expected Behavior", "Success Criteria", "Pro Tips", "Next Steps")
+- You must EXTRACT and USE only the factual company data: numbers, metrics, features, team names, products, competitors
+- NEVER copy, quote, or include instruction text, templates, "Expected Behavior", "Success Criteria", "Pro Tips", "Next Steps", or similar meta-content in your output
+- Your output must contain ONLY your researched findings - never echo document instructions back
+- If you see "[Should cite specific numbers...]" or similar - that is an instruction TO you, not content to include. Use the numbers from the document instead.
+
 CRITICAL FORMATTING RULES:
 - Use PLAIN TEXT ONLY - absolutely no markdown formatting
 - DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
@@ -19,12 +26,12 @@ CRITICAL FORMATTING RULES:
 - DO NOT use - or * for bullet points - use • symbol
 - Write in clear, readable paragraphs with natural structure
 
-Structure your response as:
+Structure your response as (output ONLY this structure, nothing before it):
 
 RESEARCH RESULTS
 
 KEY FINDINGS
-[2-3 paragraphs with findings]
+[2-3 paragraphs with findings - cite specific numbers from context when available]
 
 IMPORTANT INSIGHTS
 • Insight one
@@ -37,7 +44,7 @@ RECOMMENDATIONS
 SUMMARY
 [Brief conclusion paragraph]
 
-Keep it concise (max 600 words). Use clear language.`,
+Keep it concise (max 600 words). Use clear language. Start directly with RESEARCH RESULTS - no preamble.`,
   model: 'anthropic/claude-haiku-4-5-20251001',
 });
 
@@ -50,6 +57,7 @@ async function processResearchTasks() {
     .eq('label', 'research')
     .eq('status', 'todo')
     .is('assigned_to', null)
+    .order('created_at', { ascending: true })
     .limit(1);
 
   if (error || !tasks || tasks.length === 0) {
@@ -90,14 +98,32 @@ async function processResearchTasks() {
 
     const response = await researchAgent.generate(prompt);
 
-    await supabase
+    const content = typeof response?.text === 'string' ? response.text : String(response?.text ?? '');
+    if (!content.trim()) {
+      throw new Error('Mastra agent returned empty content');
+    }
+
+    // Strip any instruction/template leakage before "RESEARCH RESULTS"
+    let output = content;
+    const marker = 'RESEARCH RESULTS';
+    const idx = output.indexOf(marker);
+    if (idx >= 0) {
+      output = output.slice(idx).trim();
+    }
+
+    const { error: updateError } = await supabase
       .from('tasks')
       .update({
-        description: response.text,
+        description: output,
         status: 'review',
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);
+
+    if (updateError) {
+      console.error('❌ Failed to update task in Supabase:', updateError);
+      throw updateError;
+    }
 
     await supabase.from('agent_logs').insert({
       agent_name: 'research_agent',
