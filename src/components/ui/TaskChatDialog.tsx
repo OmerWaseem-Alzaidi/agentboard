@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Brain, Sparkles, Bot, User, ArrowLeft, Pencil } from 'lucide-react';
 import { CopyButton } from './copy-button';
 import { formatDistanceToNow } from 'date-fns';
+import { stripMarkdown } from '@/lib/utils';
 import { TextShimmer } from '@/components/ui/text-shimmer';
 import { PlaceholdersAndVanishInput } from '@/components/ui/placeholders-and-vanish-input';
 
@@ -83,6 +84,7 @@ export function TaskChatDialog({ task, open, onOpenChange }: TaskChatDialogProps
   const [editingState, setEditingState] = useState<{ id: string; text: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastUserMsg = useRef('');
+  const prevMessageCountRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -108,8 +110,22 @@ export function TaskChatDialog({ task, open, onOpenChange }: TaskChatDialogProps
   }, [open, task.id]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const prevCount = prevMessageCountRef.current;
+    const currCount = messages.length + (isAiTyping ? 1 : 0);
+    const isNewContent = currCount > prevCount;
+    const isInitialLoad = prevCount === 0 && currCount > 0;
+    const wasNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+
+    prevMessageCountRef.current = currCount;
+
+    // Only auto-scroll when: initial load, or new content while user was near bottom
+    if (isInitialLoad || (isNewContent && wasNearBottom)) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
     }
   }, [messages, isAiTyping]);
 
@@ -193,11 +209,12 @@ ${chatHistory}
 
 User's request: ${userMessage}
 
-CRITICAL FORMATTING RULES:
-- Use PLAIN TEXT ONLY - absolutely no markdown formatting
-- DO NOT use ** for bold, # for headers, - for bullets
-- Just write naturally in clear paragraphs
-- Use CAPITAL LETTERS for emphasis if absolutely needed
+CRITICAL FORMATTING RULES - YOU MUST FOLLOW:
+- PLAIN TEXT ONLY - NO markdown whatsoever
+- NEVER use # or ## for headers - use blank lines and CAPITAL LETTERS instead
+- NEVER use ** or * for bold/italic - use CAPITAL LETTERS for emphasis
+- NEVER use - or * for bullets - use • symbol only
+- Write in clear paragraphs. No markdown syntax.
 - Reference company context when relevant
 
 Provide a helpful, concise response to refine the task.`;
@@ -223,7 +240,8 @@ Provide a helpful, concise response to refine the task.`;
       }
 
       const data = await res.json();
-      const aiMessage = data.content?.[0]?.text ?? 'No response generated.';
+      const rawMessage = data.content?.[0]?.text ?? 'No response generated.';
+      const aiMessage = stripMarkdown(rawMessage);
 
       const agentMsgId = crypto.randomUUID();
       const agentNow = new Date().toISOString();
@@ -287,7 +305,11 @@ Provide a helpful, concise response to refine the task.`;
           </div>
         </DialogHeader>
 
-        <div ref={scrollRef} className="overflow-y-auto p-5 space-y-5 h-[500px] bg-neutral-950/30">
+        <div
+          ref={scrollRef}
+          className="overflow-y-auto overflow-x-hidden p-5 space-y-5 min-h-[300px] max-h-[min(500px,60vh)] bg-neutral-950/30 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+          style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+        >
           {messages.length === 0 && !isAiTyping && (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
               {task.assigned_to && (

@@ -63,9 +63,12 @@ async function processWritingTasks() {
 
     const { text } = await generateText({
       model: anthropic('claude-haiku-4-5-20251001'),
-      prompt: `You are a professional content writer.${contextBlock}Write high-quality content for: "${task.title}"
+      prompt: `You are a professional content writer.${contextBlock}
 
-Request: ${task.description || 'No additional details provided'}
+YOUR TASK: Write the content directly. Do NOT respond with introductions, "I'm ready to assist", or asking for clarification. Produce the actual content NOW.
+
+Topic: "${task.title}"
+Request: ${task.description || task.title || 'No additional details provided'}
 
 CRITICAL FORMATTING RULES:
 - Use PLAIN TEXT ONLY - absolutely no markdown formatting

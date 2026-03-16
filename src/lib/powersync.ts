@@ -39,10 +39,24 @@ export async function initPowerSync() {
           const record = { ...op.opData, id: op.id };
 
           if (op.op === 'PUT') {
+            // For tasks: avoid overwriting newer agent updates with stale local data.
+            // Delayed PowerSync upload (e.g. after create) can overwrite in_progress/review with todo.
+            if (table === 'tasks' && record.updated_at) {
+              const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).single();
+              if (existing?.updated_at && String(existing.updated_at) > String(record.updated_at)) {
+                console.log('⏭️ Skipping stale task upload (remote is newer)');
+                continue; // skip this op, don't overwrite
+              }
+            }
             const { error } = await supabase.from(table).upsert(record);
             if (error) throw error;
           } else if (op.op === 'PATCH') {
-            const { error } = await supabase.from(table).update(op.opData!).eq('id', op.id);
+            // For tasks: only update status/updated_at to avoid overwriting agent description.
+            // PowerSync PATCH may include full row; local can have stale null description.
+            const patchData = table === 'tasks'
+              ? { status: op.opData?.status, updated_at: op.opData?.updated_at }
+              : op.opData!;
+            const { error } = await supabase.from(table).update(patchData).eq('id', op.id);
             if (error) throw error;
           } else if (op.op === 'DELETE') {
             const { error } = await supabase.from(table).delete().eq('id', op.id);
@@ -53,6 +67,7 @@ export async function initPowerSync() {
         console.log('✅ Upload complete!');
       } catch (error) {
         console.error('❌ Upload failed:', error);
+        throw error; // Rethrow so PowerSync retries
       }
     }
   });
