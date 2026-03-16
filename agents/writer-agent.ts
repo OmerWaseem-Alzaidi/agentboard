@@ -1,5 +1,4 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
+import { Agent } from '@mastra/core/agent';
 import { createClient } from '@supabase/supabase-js';
 import { getCompanyContext } from './get-company-context';
 
@@ -8,12 +7,41 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const anthropic = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
+const writerAgent = new Agent({
+  id: 'writer-agent',
+  name: 'Writer Agent',
+  instructions: `You are a professional content writer for VersityApp.
+
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol
+
+Structure your response as:
+
+WRITTEN CONTENT
+
+INTRODUCTION
+[2-3 engaging sentences]
+
+MAIN CONTENT
+[3-4 clear paragraphs]
+
+KEY POINTS
+• Point one
+• Point two
+• Point three
+
+CONCLUSION
+[Brief conclusion paragraph]
+
+Keep it professional and engaging (max 600 words).`,
+  model: 'anthropic/claude-haiku-4-5-20251001',
 });
 
 async function processWritingTasks() {
-  console.log('Checking for writing tasks...');
+  console.log('🔍 Checking for writing tasks...');
 
   const { data: tasks, error } = await supabase
     .from('tasks')
@@ -23,12 +51,7 @@ async function processWritingTasks() {
     .is('assigned_to', null)
     .limit(1);
 
-  if (error) {
-    console.error('❌ Error fetching tasks:', error);
-    return;
-  }
-
-  if (!tasks || tasks.length === 0) {
+  if (error || !tasks || tasks.length === 0) {
     console.log('   No writing tasks found');
     return;
   }
@@ -50,63 +73,26 @@ async function processWritingTasks() {
       agent_name: 'writer_agent',
       action: 'claimed_task',
       task_id: task.id,
-      details: `Claimed writing task: ${task.title}`
+      details: `Claimed writing task: ${task.title}`,
+      created_at: new Date().toISOString()
     });
 
-    console.log('🤖 Writing content with Claude AI...');
+    console.log('🤖 Writing content with Claude AI via Mastra...');
 
     const companyContext = await getCompanyContext();
 
-    const contextBlock = companyContext
-      ? `\n\nCOMPANY CONTEXT (use this to make the content company-specific):\n${companyContext}\n\n`
-      : '';
+    let prompt = `Write content for: "${task.title}"\n\nRequest: ${task.description || 'No additional details'}`;
 
-    const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
-      prompt: `You are a professional content writer.${contextBlock}
+    if (companyContext) {
+      prompt = `COMPANY CONTEXT:\n${companyContext}\n\n${prompt}`;
+    }
 
-YOUR TASK: Write the content directly. Do NOT respond with introductions, "I'm ready to assist", or asking for clarification. Produce the actual content NOW.
-
-Topic: "${task.title}"
-Request: ${task.description || task.title || 'No additional details provided'}
-
-CRITICAL FORMATTING RULES:
-- Use PLAIN TEXT ONLY - absolutely no markdown formatting
-- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
-- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
-- DO NOT use - or * for bullet points - use • symbol
-- DO NOT use any markdown syntax whatsoever
-${companyContext ? '- Tailor the content to the company context when relevant.' : ''}
-
-Structure your response as:
-
-WRITTEN CONTENT
-
-INTRODUCTION
-
-[2-3 engaging sentences]
-
-MAIN CONTENT
-
-[3-4 clear paragraphs]
-
-KEY POINTS
-
-• Point one
-• Point two
-• Point three
-
-CONCLUSION
-
-[Brief conclusion paragraph]
-
-Keep it professional and engaging (max 600 words). Use clear, natural language.`,
-    });
+    const response = await writerAgent.generate(prompt);
 
     await supabase
       .from('tasks')
       .update({
-        description: text,
+        description: response.text,
         status: 'review',
         updated_at: new Date().toISOString()
       })
@@ -116,13 +102,15 @@ Keep it professional and engaging (max 600 words). Use clear, natural language.`
       agent_name: 'writer_agent',
       action: 'completed_task',
       task_id: task.id,
-      details: 'Content written and moved to review'
+      details: 'Writing complete and moved to review',
+      created_at: new Date().toISOString()
     });
 
     console.log('✅ Writing completed! Task moved to Review.');
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ Error:', message);
 
     await supabase
       .from('tasks')
@@ -135,6 +123,6 @@ Keep it professional and engaging (max 600 words). Use clear, natural language.`
   }
 }
 
-console.log('🚀 Writer Agent started');
-setInterval(processWritingTasks, 30000);
+console.log('🚀 Writer Agent started (using Mastra framework)');
+setInterval(processWritingTasks, 30_000);
 processWritingTasks();

@@ -1,6 +1,5 @@
+import { Agent } from '@mastra/core/agent';
 import { createClient } from '@supabase/supabase-js';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
 import { getCompanyContext } from './get-company-context';
 
 const supabase = createClient(
@@ -8,13 +7,44 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-const model = anthropic('claude-haiku-4-5-20251001');
+const researchAgent = new Agent({
+  id: 'research-agent',
+  name: 'Research Agent',
+  instructions: `You are a research assistant for VersityApp.
+
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol
+- Write in clear, readable paragraphs with natural structure
+
+Structure your response as:
+
+RESEARCH RESULTS
+
+KEY FINDINGS
+[2-3 paragraphs with findings]
+
+IMPORTANT INSIGHTS
+• Insight one
+• Insight two
+• Insight three
+
+RECOMMENDATIONS
+[Paragraph with recommendations]
+
+SUMMARY
+[Brief conclusion paragraph]
+
+Keep it concise (max 600 words). Use clear language.`,
+  model: 'anthropic/claude-haiku-4-5-20251001',
+});
 
 async function processResearchTasks() {
   console.log('🔍 Checking for research tasks...');
 
-  const { data: tasks } = await supabase
+  const { data: tasks, error } = await supabase
     .from('tasks')
     .select('*')
     .eq('label', 'research')
@@ -22,7 +52,7 @@ async function processResearchTasks() {
     .is('assigned_to', null)
     .limit(1);
 
-  if (!tasks || tasks.length === 0) {
+  if (error || !tasks || tasks.length === 0) {
     console.log('   No research tasks found');
     return;
   }
@@ -30,106 +60,58 @@ async function processResearchTasks() {
   const task = tasks[0];
   console.log(`📋 Found task: "${task.title}"`);
 
-  await supabase
-    .from('tasks')
-    .update({
-      status: 'in_progress',
-      assigned_to: 'research_agent',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', task.id);
-
-  await supabase.from('agent_logs').insert({
-    id: crypto.randomUUID(),
-    agent_name: 'research_agent',
-    action: 'picked_up',
-    task_id: task.id,
-    created_at: new Date().toISOString()
-  });
-
-  console.log('🤖 Processing with Claude AI...');
-
   try {
-    const companyContext = await getCompanyContext();
-
-    const contextBlock = companyContext
-      ? `\n\nCOMPANY CONTEXT (use this when relevant to the research):\n${companyContext}\n\n`
-      : '';
-
-    const result = await generateText({
-      model,
-      prompt: `You are a research assistant.${contextBlock}
-
-YOUR TASK: Answer the research request directly. Do NOT respond with introductions, "I'm ready to assist", or asking for clarification. Perform the research NOW using the company context when provided, and return your findings.
-
-Topic: ${task.title}
-Request: ${task.description || task.title || 'No additional details provided'}
-
-If company context is provided, extract and summarize the requested data (metrics, revenue, growth, etc.) from it. If the request cannot be fully answered from context, say so and provide what you can.
-
-CRITICAL FORMATTING RULES:
-- Use PLAIN TEXT ONLY - absolutely no markdown formatting
-- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
-- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
-- DO NOT use - or * for bullet points - use • symbol or just numbers
-- DO NOT use any markdown syntax whatsoever
-- Write in clear, readable paragraphs with natural structure
-${companyContext ? '- Reference the company context when relevant to give company-specific insights.' : ''}
-
-Structure your response as:
-
-RESEARCH RESULTS
-
-[Paragraph about the topic]
-
-KEY FINDINGS
-
-[2-3 paragraphs with findings]
-
-IMPORTANT INSIGHTS
-
-• First insight here
-• Second insight here
-• Third insight here
-
-RELEVANT DATA
-
-• Data point one
-• Data point two
-
-RECOMMENDATIONS
-
-[Paragraph with recommendations]
-
-SUMMARY
-
-[Brief conclusion paragraph]
-
-Keep it concise (max 600 words). Use clear, natural language.`
-    });
-
     await supabase
       .from('tasks')
       .update({
-        status: 'review',
-        description: `${task.description || task.title}\n\n${result.text}`,
+        status: 'in_progress',
+        assigned_to: 'research_agent',
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);
 
     await supabase.from('agent_logs').insert({
-      id: crypto.randomUUID(),
       agent_name: 'research_agent',
-      action: 'completed',
+      action: 'claimed_task',
       task_id: task.id,
-      details: JSON.stringify({ tokens: result.usage }),
+      details: `Claimed research task: ${task.title}`,
+      created_at: new Date().toISOString()
+    });
+
+    console.log('🤖 Researching with Claude AI via Mastra...');
+
+    const companyContext = await getCompanyContext();
+
+    let prompt = `Research this topic: "${task.title}"\n\nRequest: ${task.description || 'No additional details'}`;
+
+    if (companyContext) {
+      prompt = `COMPANY CONTEXT:\n${companyContext}\n\n${prompt}`;
+    }
+
+    const response = await researchAgent.generate(prompt);
+
+    await supabase
+      .from('tasks')
+      .update({
+        description: response.text,
+        status: 'review',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', task.id);
+
+    await supabase.from('agent_logs').insert({
+      agent_name: 'research_agent',
+      action: 'completed_task',
+      task_id: task.id,
+      details: 'Research complete and moved to review',
       created_at: new Date().toISOString()
     });
 
     console.log('✅ Research completed! Task moved to Review.');
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ Error:', message);
 
     await supabase
       .from('tasks')
@@ -142,12 +124,6 @@ Keep it concise (max 600 words). Use clear, natural language.`
   }
 }
 
-async function main() {
-  console.log('🚀 Research Agent started');
-  while (true) {
-    await processResearchTasks();
-    await new Promise(r => setTimeout(r, 10_000));
-  }
-}
-
-main().catch(console.error);
+console.log('🚀 Research Agent started (using Mastra framework)');
+setInterval(processResearchTasks, 30_000);
+processResearchTasks();
