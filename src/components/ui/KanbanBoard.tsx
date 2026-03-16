@@ -186,7 +186,8 @@ export function KanbanBoard() {
   return (
     <>
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Mobile: horizontal scroll with swipe; md+: grid */}
+      <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 overflow-x-auto overflow-y-visible pb-4 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory [-webkit-overflow-scrolling:touch]">
         {columns.map(col => (
           <KanbanColumn
             key={col.id}

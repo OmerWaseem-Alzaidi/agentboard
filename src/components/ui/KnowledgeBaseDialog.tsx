@@ -123,7 +123,7 @@ export function KnowledgeBaseDialog({ open, onOpenChange }: KnowledgeBaseDialogP
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
+          className={`relative border-2 border-dashed rounded-xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-200 touch-manipulation ${
             dragOver
               ? 'border-blue-500/50 bg-blue-500/10'
               : 'border-neutral-700/50 hover:border-neutral-600/50 hover:bg-neutral-800/30'

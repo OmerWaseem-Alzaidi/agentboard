@@ -89,7 +89,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       {...listeners}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      className="cursor-move transition-all duration-300 border rounded-xl bg-neutral-800/60 backdrop-blur-sm border-neutral-700/50 hover:bg-neutral-700/70 p-5"
+      className="cursor-move transition-all duration-300 border rounded-xl bg-neutral-800/60 backdrop-blur-sm border-neutral-700/50 hover:bg-neutral-700/70 p-4 sm:p-5 touch-manipulation"
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between">

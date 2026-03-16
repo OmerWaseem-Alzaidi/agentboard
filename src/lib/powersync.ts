@@ -12,19 +12,52 @@ export const db = new PowerSyncDatabase({
   }
 });
 
-export async function initPowerSync() {
-  const powerSyncUrl = import.meta.env.VITE_POWERSYNC_URL;
-  const token = import.meta.env.VITE_POWERSYNC_TOKEN;
+/**
+ * Get PowerSync JWT from Supabase session.
+ * Uses Supabase Anonymous Auth - tokens refresh automatically, no expiration issues.
+ *
+ * MANUAL CONFIG REQUIRED:
+ * 1. Supabase: Authentication → Providers → enable "Anonymous sign-ins"
+ * 2. PowerSync: Client Auth → check "Use Supabase Auth" → Save and Deploy
+ */
+async function getPowerSyncToken(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!powerSyncUrl || !token) {
-    throw new Error('Missing PowerSync credentials');
+  if (session?.access_token) {
+    console.log('✅ Using existing Supabase session');
+    return session.access_token;
   }
 
-  await db.connect({
-    fetchCredentials: async () => ({
-      endpoint: powerSyncUrl,
-      token: token
-    }),
+  console.log('📝 Creating anonymous session...');
+  const { data, error } = await supabase.auth.signInAnonymously();
+
+  if (error || !data.session) {
+    throw new Error(`Failed to create anonymous session: ${error?.message}`);
+  }
+
+  console.log('✅ Anonymous session created');
+  return data.session.access_token;
+}
+
+export async function initPowerSync() {
+  const powerSyncUrl = import.meta.env.VITE_POWERSYNC_URL;
+
+  if (!powerSyncUrl) {
+    throw new Error('Missing VITE_POWERSYNC_URL in environment variables');
+  }
+
+  console.log('🔌 Connecting to PowerSync with Supabase Auth...');
+
+  try {
+    await db.connect({
+      fetchCredentials: async () => {
+        const token = await getPowerSyncToken();
+        console.log('📡 PowerSync credentials fetched (Supabase JWT)');
+        return {
+          endpoint: powerSyncUrl,
+          token,
+        };
+      },
     uploadData: async (database) => {
       console.log('🔄 Upload function called!');
 
@@ -38,21 +71,32 @@ export async function initPowerSync() {
           const table = op.table;
           const record = { ...op.opData, id: op.id };
 
+          // Skip task_messages for deleted tasks (FK: task_id must exist in tasks)
+          if (table === 'task_messages' && (op.op === 'PUT' || op.op === 'PATCH')) {
+            const taskId = ((op.opData as Record<string, unknown>)?.task_id ?? (record as Record<string, unknown>).task_id) as string | undefined;
+            if (taskId) {
+              const { data: taskExists } = await supabase.from('tasks').select('id').eq('id', taskId).maybeSingle();
+              if (!taskExists) {
+                console.log('⏭️ Skipping task_messages for deleted task:', taskId);
+                continue;
+              }
+            }
+          }
+
           if (op.op === 'PUT') {
             // For tasks: avoid overwriting newer agent updates with stale local data.
-            // Delayed PowerSync upload (e.g. after create) can overwrite in_progress/review with todo.
-            if (table === 'tasks' && record.updated_at) {
+            const updatedAt = (record as Record<string, unknown>).updated_at;
+            if (table === 'tasks' && updatedAt) {
               const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).single();
-              if (existing?.updated_at && String(existing.updated_at) > String(record.updated_at)) {
+              if ((existing as { updated_at?: string } | null)?.updated_at && String((existing as { updated_at: string }).updated_at) > String(updatedAt)) {
                 console.log('⏭️ Skipping stale task upload (remote is newer)');
-                continue; // skip this op, don't overwrite
+                continue;
               }
             }
             const { error } = await supabase.from(table).upsert(record);
             if (error) throw error;
           } else if (op.op === 'PATCH') {
             // For tasks: only update status/updated_at to avoid overwriting agent description.
-            // PowerSync PATCH may include full row; local can have stale null description.
             const patchData = table === 'tasks'
               ? { status: op.opData?.status, updated_at: op.opData?.updated_at }
               : op.opData!;
@@ -72,7 +116,12 @@ export async function initPowerSync() {
     }
   });
 
-  console.log('✅ PowerSync connected!');
+  console.log('✅ PowerSync connected with Supabase Auth!');
+  console.log('📊 Database status:', db.connected ? 'CONNECTED' : 'DISCONNECTED');
+  } catch (error) {
+    console.error('❌ PowerSync connection failed:', error);
+    throw error;
+  }
 }
 
 /**

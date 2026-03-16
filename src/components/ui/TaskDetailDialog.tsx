@@ -128,11 +128,13 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     setDeleting(true);
     try {
       const taskId = task.id;
-      // 1. Delete from PowerSync (uploadData will try to sync to Supabase)
+      // 1. Delete task_messages first (avoids FK violation: task_messages reference tasks)
+      await db.execute('DELETE FROM task_messages WHERE task_id = ?', [taskId]);
+      await supabase.from('task_messages').delete().eq('task_id', taskId);
+      // 2. Delete task from PowerSync (uploadData will try to sync to Supabase)
       await db.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
       markRecentlyDeleted(taskId);
-      // 2. Also delete from Supabase directly - backup in case uploadData fails (e.g. Load failed).
-      // This stops PowerSync connector from re-pushing the task.
+      // 3. Also delete from Supabase directly - backup in case uploadData fails (e.g. Load failed).
       await supabase.from('tasks').delete().eq('id', taskId);
       setConfirming(false);
       onOpenChange(false);
@@ -154,7 +156,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   return (
     <>
       <Dialog open={open && !showChat} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-[min(500px,calc(100vw-2rem))] sm:max-w-2xl max-h-[85dvh] sm:max-h-[80vh] overflow-y-auto">
           <DialogHeader className="pr-12">
             <div className="flex items-center gap-3 flex-wrap">
               <DialogTitle className="text-xl">{task.title}</DialogTitle>
@@ -195,15 +197,11 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             </div>
           ) : fetchingDescription ? (
             <p className="text-sm text-neutral-500 italic">Loading description...</p>
-          ) : fetchingDescription ? (
-            <p className="text-sm text-neutral-500 italic">Loading description...</p>
-          ) : fetchingDescription ? (
-            <p className="text-sm text-neutral-500 italic">Loading description...</p>
           ) : (
             <p className="text-sm text-neutral-500 italic">No description</p>
           )}
 
-          <div className="border-t border-neutral-700/30 pt-3 flex items-center justify-between text-xs text-neutral-500">
+          <div className="border-t border-neutral-700/30 pt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-xs text-neutral-500">
             <span>Created {formatDate(task.created_at)}</span>
             <span>Updated {formatDate(task.updated_at)}</span>
           </div>
