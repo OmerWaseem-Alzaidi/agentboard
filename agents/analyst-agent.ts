@@ -1,5 +1,4 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
+import { Agent } from '@mastra/core/agent';
 import { createClient } from '@supabase/supabase-js';
 import { getCompanyContext } from './get-company-context';
 
@@ -8,12 +7,44 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const anthropic = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
+const analystAgent = new Agent({
+  id: 'analyst-agent',
+  name: 'Analyst Agent',
+  instructions: `You are a data analyst for VersityApp.
+
+CRITICAL FORMATTING RULES:
+- Use PLAIN TEXT ONLY - absolutely no markdown formatting
+- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
+- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
+- DO NOT use - or * for bullet points - use • symbol
+
+Structure your response as:
+
+ANALYSIS RESULTS
+
+EXECUTIVE SUMMARY
+[2-3 sentences]
+
+DETAILED ANALYSIS
+[3-4 paragraphs examining the topic]
+
+KEY METRICS AND INSIGHTS
+• Metric or insight one
+• Metric or insight two
+• Metric or insight three
+
+RECOMMENDATIONS
+[Actionable insights paragraph]
+
+CONCLUSION
+[Conclusion paragraph]
+
+Be data-driven and objective (max 600 words).`,
+  model: 'anthropic/claude-haiku-4-5-20251001',
 });
 
 async function processAnalysisTasks() {
-  console.log('Checking for analysis tasks...');
+  console.log('🔍 Checking for analysis tasks...');
 
   const { data: tasks, error } = await supabase
     .from('tasks')
@@ -23,12 +54,7 @@ async function processAnalysisTasks() {
     .is('assigned_to', null)
     .limit(1);
 
-  if (error) {
-    console.error('❌ Error fetching tasks:', error);
-    return;
-  }
-
-  if (!tasks || tasks.length === 0) {
+  if (error || !tasks || tasks.length === 0) {
     console.log('   No analysis tasks found');
     return;
   }
@@ -50,69 +76,26 @@ async function processAnalysisTasks() {
       agent_name: 'analyst_agent',
       action: 'claimed_task',
       task_id: task.id,
-      details: `Claimed analysis task: ${task.title}`
+      details: `Claimed analysis task: ${task.title}`,
+      created_at: new Date().toISOString()
     });
 
-    console.log('🤖 Analyzing with Claude AI...');
+    console.log('🤖 Analyzing with Claude AI via Mastra...');
 
     const companyContext = await getCompanyContext();
 
-    const contextBlock = companyContext
-      ? `\n\nCOMPANY CONTEXT (use this data for company-specific analysis):\n${companyContext}\n\n`
-      : '';
+    let prompt = `Analyze: "${task.title}"\n\nContext: ${task.description || 'No additional details'}`;
 
-    const { text } = await generateText({
-      model: anthropic('claude-haiku-4-5-20251001'),
-      prompt: `You are a data analyst.${contextBlock}
+    if (companyContext) {
+      prompt = `COMPANY CONTEXT:\n${companyContext}\n\n${prompt}`;
+    }
 
-YOUR TASK: Answer the analysis request directly. Do NOT respond with introductions, "I'm ready to assist", readiness confirmations, or asking for clarification. Perform the analysis NOW using the company context when provided, and return your findings.
-
-Topic to analyze: ${task.title}
-Request/Context: ${task.description || task.title || 'No additional details provided'}
-
-If company context is provided, extract and analyze the requested data (metrics, revenue, growth, positioning, etc.) from it. If the request cannot be fully answered from context, say so and provide what you can.
-
-CRITICAL FORMATTING RULES:
-- Use PLAIN TEXT ONLY - absolutely no markdown formatting
-- DO NOT use ** for bold - use CAPITAL LETTERS for emphasis if needed
-- DO NOT use # or ## for headers - use blank lines and CAPITAL LETTERS
-- DO NOT use - or * for bullet points - use • symbol
-- DO NOT use any markdown syntax whatsoever
-${companyContext ? '- Ground your analysis in the company context when relevant.' : ''}
-
-Structure your response as:
-
-ANALYSIS RESULTS
-
-EXECUTIVE SUMMARY
-
-[2-3 sentences]
-
-DETAILED ANALYSIS
-
-[3-4 paragraphs examining the topic]
-
-KEY METRICS AND INSIGHTS
-
-• Metric or insight one
-• Metric or insight two
-• Metric or insight three
-
-RECOMMENDATIONS
-
-[Actionable insights paragraph]
-
-CONCLUSION
-
-[Conclusion paragraph]
-
-Be data-driven and objective (max 600 words). Use clear, natural language.`,
-    });
+    const response = await analystAgent.generate(prompt);
 
     await supabase
       .from('tasks')
       .update({
-        description: text,
+        description: response.text,
         status: 'review',
         updated_at: new Date().toISOString()
       })
@@ -122,13 +105,15 @@ Be data-driven and objective (max 600 words). Use clear, natural language.`,
       agent_name: 'analyst_agent',
       action: 'completed_task',
       task_id: task.id,
-      details: 'Analysis complete and moved to review'
+      details: 'Analysis complete and moved to review',
+      created_at: new Date().toISOString()
     });
 
     console.log('✅ Analysis completed! Task moved to Review.');
 
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ Error:', message);
 
     await supabase
       .from('tasks')
@@ -141,6 +126,6 @@ Be data-driven and objective (max 600 words). Use clear, natural language.`,
   }
 }
 
-console.log('🚀 Analyst Agent started');
-setInterval(processAnalysisTasks, 30000);
+console.log('🚀 Analyst Agent started (using Mastra framework)');
+setInterval(processAnalysisTasks, 30_000);
 processAnalysisTasks();
