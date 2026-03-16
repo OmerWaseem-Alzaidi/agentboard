@@ -275,12 +275,13 @@ Provide a helpful, concise response to refine the task.`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className="w-full max-w-[min(500px,calc(100vw-2rem))] sm:max-w-3xl min-h-[70dvh] sm:min-h-0 h-[90dvh] sm:h-auto sm:max-h-[80vh] p-0 gap-0 overflow-hidden flex flex-col" showCloseButton={false}>
         <DialogHeader className="px-5 py-4 border-b border-neutral-700/30 bg-neutral-900/50 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={() => onOpenChange(false)}
-              className="p-1.5 rounded-lg hover:bg-neutral-800 transition-colors"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center -ml-2 rounded-lg hover:bg-neutral-800 transition-colors touch-manipulation"
+              aria-label="Back"
             >
               <ArrowLeft className="w-4 h-4 text-neutral-400" />
             </button>
@@ -307,7 +308,7 @@ Provide a helpful, concise response to refine the task.`;
 
         <div
           ref={scrollRef}
-          className="overflow-y-auto overflow-x-hidden p-5 space-y-5 min-h-[300px] max-h-[min(500px,60vh)] bg-neutral-950/30 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 space-y-5 bg-neutral-950/30 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]"
           style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         >
           {messages.length === 0 && !isAiTyping && (
@@ -382,7 +383,7 @@ Provide a helpful, concise response to refine the task.`;
           )}
         </div>
 
-        <div className="border-t border-neutral-700/30 px-4 py-3 bg-neutral-900/50 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-neutral-700/30 px-4 pt-4 pb-[max(1.5rem,calc(1.5rem+env(safe-area-inset-bottom)))] bg-neutral-900/50 backdrop-blur-sm">
           <PlaceholdersAndVanishInput
             key={editingState ? 'editing' : 'normal'}
             placeholders={getPlaceholders(task.assigned_to)}

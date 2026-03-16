@@ -52,29 +52,33 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
+        className="!fixed !left-0 !right-0 !top-0 !bottom-0 z-50 overflow-y-auto overscroll-contain p-4 sm:p-6 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         {...props}
       >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
+        {/* Centered with absolute + transform for reliable mobile centering */}
+        <div
+          className={cn(
+            "absolute left-1/2 top-1/2 w-full max-w-[400px] -translate-x-1/2 -translate-y-1/2 grid max-h-[min(90dvh,calc(100dvh-2rem))] gap-4 rounded-xl bg-background p-4 sm:p-5 text-sm ring-1 ring-foreground/10 outline-none overflow-y-auto overscroll-contain shadow-xl data-open:animate-in data-open:zoom-in-95 data-closed:animate-out data-closed:zoom-out-95 pb-[env(safe-area-inset-bottom)]",
+            className
+          )}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="absolute top-2 right-2"
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </div>
       </DialogPrimitive.Popup>
     </DialogPortal>
   )

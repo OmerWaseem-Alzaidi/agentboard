@@ -112,7 +112,7 @@ Keep it concise (max 600 words). Use clear, natural language.`
       .from('tasks')
       .update({
         status: 'review',
-        description: `${task.description || task.title}\n\nRESEARCH RESULTS\n\n${result.text}`,
+        description: `${task.description || task.title}\n\n${result.text}`,
         updated_at: new Date().toISOString()
       })
       .eq('id', task.id);

@@ -98,7 +98,7 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
               id="task-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="flex h-9 w-full rounded-lg border border-neutral-700/50 bg-neutral-800/60 px-3 py-1 text-sm text-neutral-200 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex min-h-[44px] h-auto w-full rounded-lg border border-neutral-700/50 bg-neutral-800/60 px-3 py-2.5 text-sm text-neutral-200 shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="">No label</option>
               <option value="research">Research</option>
@@ -107,7 +107,11 @@ export function CreateTaskDialog({ open, onOpenChange }: CreateTaskDialogProps) 
             </select>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={!title.trim() || submitting}>
+            <Button
+              type="submit"
+              disabled={!title.trim() || submitting}
+              className="min-h-[44px] touch-manipulation"
+            >
               {submitting ? 'Creating...' : 'Create Task'}
             </Button>
           </DialogFooter>
