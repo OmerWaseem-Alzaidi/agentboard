@@ -3,12 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
+"scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "agent": "tsx --env-file=.env agents/research-agent.ts",
-    "agent:writer": "tsx --env-file=.env agents/writer-agent.ts",
-    "agent:analyst": "tsx --env-file=.env agents/analyst-agent.ts",
+    "agent": "tsx agents/research-agent.ts",
+    "agent:writer": "tsx agents/writer-agent.ts",
+    "agent:analyst": "tsx agents/analyst-agent.ts",
     "agents:all": "concurrently \"npm run agent\" \"npm run agent:writer\" \"npm run agent:analyst\""
   },
   "dependencies": {
