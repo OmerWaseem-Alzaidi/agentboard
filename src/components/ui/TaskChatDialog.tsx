@@ -219,11 +219,16 @@ CRITICAL FORMATTING RULES - YOU MUST FOLLOW:
 
 Provide a helpful, concise response to refine the task.`;
 
-      const res = await fetch('/api/anthropic/v1/messages', {
+      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error('Anthropic API key not configured. Add VITE_ANTHROPIC_API_KEY to your environment variables.');
+      }
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true',
         },
@@ -235,8 +240,15 @@ Provide a helpful, concise response to refine the task.`;
       });
 
       if (!res.ok) {
-        const errBody = await res.text();
-        throw new Error(`Anthropic API ${res.status}: ${errBody}`);
+        let errMsg = `Anthropic API ${res.status}`;
+        try {
+          const errData = await res.json() as { error?: { message?: string } };
+          if (errData?.error?.message) errMsg = errData.error.message;
+        } catch {
+          const text = await res.text();
+          if (text) errMsg = text.slice(0, 200);
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
