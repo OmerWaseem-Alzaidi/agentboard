@@ -34,6 +34,7 @@ const task_messages = new Table({
 });
 
 const company_knowledge = new Table({
+  id: column.text,
   filename: column.text,
   file_type: column.text,
   storage_path: column.text,

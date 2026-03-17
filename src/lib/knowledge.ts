@@ -57,11 +57,19 @@ export async function uploadCompanyDocument(file: File) {
 }
 
 export async function deleteCompanyDocument(id: string, storagePath: string) {
-  try {
-    await supabase.storage.from('company-docs').remove([storagePath]);
-  } catch {
-    // best-effort storage cleanup
+  // 1. Remove from Supabase storage (best-effort)
+  if (storagePath) {
+    try {
+      await supabase.storage.from('company-docs').remove([storagePath]);
+    } catch {
+      // best-effort; continue with DB delete
+    }
   }
+  // 2. Delete from local PowerSync DB first (so UI updates immediately)
   await db.execute('DELETE FROM company_knowledge WHERE id = ?', [id]);
-  await supabase.from('company_knowledge').delete().eq('id', id);
+  // 3. Delete from Supabase (required so PowerSync doesn't re-sync the record)
+  const { error } = await supabase.from('company_knowledge').delete().eq('id', id);
+  if (error) {
+    throw new Error(`Failed to delete: ${error.message}. Check Supabase RLS allows DELETE for your role.`);
+  }
 }
