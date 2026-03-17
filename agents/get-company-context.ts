@@ -5,6 +5,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Strips testing instructions and metadata from company context.
+ * Filters out SUCCESS CRITERIA, NEXT STEPS, test scenarios, etc.
+ * Returns empty string if result has less than 100 chars (not meaningful).
+ */
+export function cleanCompanyContext(raw: string): string {
+  const cleaned = raw
+    .split('\n')
+    .filter(line => {
+      const lowerLine = line.toLowerCase().trim();
+      return (
+        !lowerLine.startsWith('✅') &&
+        !lowerLine.startsWith('🎯') &&
+        !lowerLine.includes('success criteria') &&
+        !lowerLine.includes('next steps') &&
+        !lowerLine.includes('test scenarios') &&
+        !lowerLine.includes('reach out to') &&
+        !lowerLine.includes('questions?') &&
+        !line.match(/^[\d]+\./) && // Remove numbered lists like "1. Upload..."
+        !line.includes('[Should reference')
+      );
+    })
+    .join('\n')
+    .trim();
+  return cleaned.length > 100 ? cleaned : '';
+}
+
 export async function getCompanyContext(): Promise<string | null> {
   try {
     const { data, error } = await supabase

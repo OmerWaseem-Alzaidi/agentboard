@@ -1,6 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { createClient } from '@supabase/supabase-js';
-import { getCompanyContext } from './get-company-context';
+import { getCompanyContext, cleanCompanyContext } from './get-company-context';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -80,12 +80,15 @@ async function processWritingTasks() {
 
     console.log('🤖 Writing content with Claude AI via Mastra...');
 
-    const companyContext = await getCompanyContext();
+    const rawContext = await getCompanyContext();
 
     let prompt = `Write content for: "${task.title}"\n\nRequest: ${task.description || 'No additional details'}`;
 
-    if (companyContext) {
-      prompt = `COMPANY CONTEXT:\n${companyContext}\n\n${prompt}`;
+    if (rawContext) {
+      const cleanedContext = cleanCompanyContext(rawContext);
+      if (cleanedContext) {
+        prompt = `COMPANY CONTEXT (use this information to inform your writing, but don't output it directly):\n\n${cleanedContext}\n\n---\n\nNow, ${prompt}`;
+      }
     }
 
     const response = await writerAgent.generate(prompt);
