@@ -80,10 +80,17 @@ export function KnowledgeBaseDialog({ open, onOpenChange }: KnowledgeBaseDialogP
   };
 
   const handleDelete = async (doc: CompanyKnowledge) => {
+    if (!doc.id) {
+      setStatus({ type: 'error', message: 'Cannot delete: missing document ID' });
+      return;
+    }
     try {
       await deleteCompanyDocument(doc.id, doc.storage_path);
+      setStatus({ type: 'success', message: `Deleted ${doc.filename}` });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Delete failed';
       console.error('Delete failed:', err);
+      setStatus({ type: 'error', message: msg });
     }
   };
 
@@ -212,7 +219,8 @@ export function KnowledgeBaseDialog({ open, onOpenChange }: KnowledgeBaseDialogP
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDelete(doc)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 p-0 text-neutral-500 hover:text-red-400"
+                  className="h-7 w-7 p-0 text-neutral-500 hover:text-red-400 focus-visible:ring-2 focus-visible:ring-red-500/50"
+                  aria-label={`Delete ${doc.filename}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
