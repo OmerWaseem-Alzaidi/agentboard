@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { CompanyKnowledge } from '@/types';
 import { db } from '@/lib/powersync';
 import { uploadCompanyDocument, deleteCompanyDocument } from '@/lib/knowledge';
+import { getRecentlyDeletedKnowledgeIds } from '@/lib/deleted-knowledge';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +43,8 @@ export function KnowledgeBaseDialog({ open, onOpenChange }: KnowledgeBaseDialogP
             rows.push(result.rows.item(i) as CompanyKnowledge);
           }
         }
-        setDocs(rows);
+        const skip = getRecentlyDeletedKnowledgeIds();
+        setDocs(rows.filter((d) => !skip.has(d.id)));
       }
     })();
 

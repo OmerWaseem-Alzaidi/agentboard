@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { db, upsertToSupabase } from './powersync';
+import { markRecentlyDeletedKnowledge } from './deleted-knowledge';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_CONTENT_LENGTH = 50_000;
@@ -57,6 +58,8 @@ export async function uploadCompanyDocument(file: File) {
 }
 
 export async function deleteCompanyDocument(id: string, storagePath: string) {
+  // 0. Mark as deleted so we hide it even if PowerSync re-syncs stale data
+  markRecentlyDeletedKnowledge(id);
   // 1. Remove from Supabase storage (best-effort)
   if (storagePath) {
     try {
