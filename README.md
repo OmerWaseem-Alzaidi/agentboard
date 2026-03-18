@@ -4,9 +4,11 @@
 
 ### AI Agents and Humans, Working Together in Real-Time
 
-**🚀 [Live Demo](https://agentboard-5b9aqf4fu-versity.vercel.app)** | **📹 [Demo Video](#)** | **🏆 [PowerSync AI Hackathon 2026](#)**
+**🚀 [Live Demo](https://agentboard-5b9aqf4fu-versity.vercel.app)** | **📹 [Demo Video](https://youtu.be/-xtf23gXLEw)** | **🏆 [PowerSync AI Hackathon 2026](https://www.powersync.com/blog/powersync-ai-hackathon-8k-in-prizes)**
 
 AgentBoard Demo
+
+![AgentBoard Demo](demo/project-demo.gif)
 
 *Watch AI agents autonomously process research, writing, and analysis tasks while you manage the workflow*
 
@@ -58,6 +60,8 @@ Company Context Demo
 
 Agent Activity Feed
 
+![Agents Demo](demo/agents-demo.gif)
+
 - **Research Agent**: Gathers information
 - **Writer Agent**: Creates content  
 - **Analyst Agent**: Analyzes data
@@ -83,6 +87,8 @@ PowerSync Offline
 
 ### 🏢 **Company Knowledge Base**
 
+![Company Knowledge Feature](demo/company-knowledge.gif)
+
 Knowledge Upload
 
 - Upload PDFs and documents
@@ -93,6 +99,8 @@ Knowledge Upload
 <td width="50%">
 
 ### 🎨 **Beautiful UI**
+
+![Kanban Board](demo/kanban-ui.gif)
 
 Kanban Board
 
@@ -111,7 +119,7 @@ Kanban Board
 
 <div align="center">
 
-![AgentBoard Architecture](diagrams_architecture.png)
+![AgentBoard Architecture](demo/diagrams-architecture.gif)
 
 </div>
 
@@ -183,41 +191,12 @@ const response = await researchAgent.generate(prompt);
 
 ---
 
-## 📸 Screenshots
-
-### Main Kanban Board
-
-Kanban Board
-*Drag-and-drop task management with real-time agent activity*
-
-### Agent Processing Task
-
-Agent Working
-*Watch an agent claim a task, process it with AI, and move it to Review*
-
-### Multi-Tab Sync
-
-Multi-Tab Demo
-*Create task in one tab → appears instantly in another tab (offline-first!)*
-
-### Company Knowledge Base
-
-Knowledge Base
-*Upload company documents → AI agents reference your strategy and metrics*
-
----
 
 ## 🎬 Demo Video
 
-**📹 [Watch Full Demo (3 min)](https://youtube.com/your-demo-link)**
+**📹 [Watch Full Demo (1 min)](https://youtu.be/-xtf23gXLEw)**
 
-**Quick highlights:**
 
-- 0:00 - Hook: Human-AI collaboration concept
-- 0:30 - Create 3 tasks, watch 3 agents work simultaneously  
-- 1:30 - Company context: AI references YOUR metrics
-- 2:00 - Multi-tab sync (WOW moment!)
-- 2:30 - Tech stack & close
 
 ---
 
@@ -341,17 +320,15 @@ Thank you for the **cleanest AI agent framework** we've found. Your abstractions
 
 Thank you for **managed PostgreSQL** that just works. Your anonymous auth + PowerSync integration was seamless. The storage bucket for company docs was perfect for our use case.
 
-### Anthropic
-
-Thank you for **Claude Haiku** — the speed and quality made our agents actually useful, not just a gimmick.
-
 ---
 
 ## 📧 Contact
 
-**Built by:** [Omer Waseem](mailto:omaralzaidi2002@gmail.com)
+**Built by Omer Waseem**
 
-**GitHub:** [OmerWaseem-Alzaidi](https://github.com/OmerWaseem-Alzaidi)
+<a href="mailto:omaralzaidi2002@gmail.com"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/gmail.svg" width="22" height="22" alt="Email"/></a>
+<a href="https://github.com/OmerWaseem-Alzaidi"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg" width="22" height="22" alt="GitHub"/></a>
+<a href="https://www.linkedin.com/in/omerwaseemal-zaidi"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/linkedin.svg" width="22" height="22" alt="LinkedIn"/></a>
 
 **Questions?** Open an issue or email me!
 
