@@ -12,9 +12,9 @@ AgentBoard Demo
 
 *Watch AI agents autonomously process research, writing, and analysis tasks while you manage the workflow*
 
-[PowerSync](https://powersync.com)
-[Mastra](https://mastra.ai)
-[Supabase](https://supabase.com)
+<a href="https://powersync.com"><img src="https://www.google.com/s2/favicons?domain=powersync.com&sz=32" width="22" height="22" alt="PowerSync"/></a>
+<a href="https://mastra.ai"><img src="https://www.google.com/s2/favicons?domain=mastra.ai&sz=32" width="22" height="22" alt="Mastra"/></a>
+<a href="https://supabase.com"><img src="https://cdn.simpleicons.org/supabase/3ECF8E" width="22" height="22" alt="Supabase"/></a>
 
 </div>
 
@@ -58,9 +58,9 @@ Company Context Demo
 
 ### 🤖 **3 Autonomous AI Agents**
 
-Agent Activity Feed
-
 ![Agents Demo](demo/agents-demo.gif)
+
+Agent Activity Feed
 
 - **Research Agent**: Gathers information
 - **Writer Agent**: Creates content  
@@ -326,9 +326,9 @@ Thank you for **managed PostgreSQL** that just works. Your anonymous auth + Powe
 
 **Built by Omer Waseem**
 
-<a href="mailto:omaralzaidi2002@gmail.com"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/gmail.svg" width="22" height="22" alt="Email"/></a>
-<a href="https://github.com/OmerWaseem-Alzaidi"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg" width="22" height="22" alt="GitHub"/></a>
-<a href="https://www.linkedin.com/in/omerwaseemal-zaidi"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/linkedin.svg" width="22" height="22" alt="LinkedIn"/></a>
+<a href="mailto:omaralzaidi2002@gmail.com"><img src="https://cdn.simpleicons.org/gmail/EA4335" width="22" height="22" alt="Email"/></a>
+<a href="https://github.com/OmerWaseem-Alzaidi"><img src="https://cdn.simpleicons.org/github/e6edf3" width="22" height="22" alt="GitHub"/></a>
+<a href="https://www.linkedin.com/in/omerwaseemal-zaidi"><img src="https://cdn.simpleicons.org/linkedin/58a6ff" width="22" height="22" alt="LinkedIn"/></a>
 
 **Questions?** Open an issue or email me!
 
@@ -346,9 +346,9 @@ MIT License - see [LICENSE](LICENSE) for details
 
 *Making AI agents and humans true teammates, not just tools*
 
-[PowerSync](https://powersync.com)
-[Mastra](https://mastra.ai)
-[Supabase](https://supabase.com)
+<a href="https://powersync.com"><img src="https://www.google.com/s2/favicons?domain=powersync.com&sz=32" width="22" height="22" alt="PowerSync"/></a>
+<a href="https://mastra.ai"><img src="https://www.google.com/s2/favicons?domain=mastra.ai&sz=32" width="22" height="22" alt="Mastra"/></a>
+<a href="https://supabase.com"><img src="https://cdn.simpleicons.org/supabase/3ECF8E" width="22" height="22" alt="Supabase"/></a>
 
 **[⬆ Back to Top](#-agentboard)**
 
