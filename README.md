@@ -4,7 +4,7 @@
 
 ### AI Agents and Humans, Working Together in Real-Time
 
-**🚀 [Live Demo](https://agentboard-5b9aqf4fu-versity.vercel.app)** | **📹 [Demo Video](https://youtu.be/-xtf23gXLEw)** | **🏆 [PowerSync AI Hackathon 2026](https://www.powersync.com/blog/powersync-ai-hackathon-8k-in-prizes)**
+**🚀 [Live Demo](https://agentboard-5b9aqf4fu-versity.vercel.app)** | **📹 [Demo Video](https://youtu.be/-xtf23gXLEw)** | **📹 [Live Demo Video](https://youtu.be/Po0w4TvswJc)** | **🏆 [PowerSync AI Hackathon 2026](https://www.powersync.com/blog/powersync-ai-hackathon-8k-in-prizes)**
 
 AgentBoard Demo
 
