@@ -12,9 +12,9 @@ AgentBoard Demo
 
 *Watch AI agents autonomously process research, writing, and analysis tasks while you manage the workflow*
 
-<a href="https://powersync.com"><img src="https://www.google.com/s2/favicons?domain=powersync.com&sz=32" width="22" height="22" alt="PowerSync"/></a>
-<a href="https://mastra.ai"><img src="https://www.google.com/s2/favicons?domain=mastra.ai&sz=32" width="22" height="22" alt="Mastra"/></a>
-<a href="https://supabase.com"><img src="https://cdn.simpleicons.org/supabase/3ECF8E" width="22" height="22" alt="Supabase"/></a>
+<a href="https://powersync.com"><img src="https://www.google.com/s2/favicons?domain=powersync.com&sz=75" width="75" height="75" alt="PowerSync"/></a>
+<a href="https://mastra.ai"><img src="https://www.google.com/s2/favicons?domain=mastra.ai&sz=75" width="75" height="75" alt="Mastra"/></a>
+<a href="https://supabase.com"><img src="https://cdn.simpleicons.org/supabase/3ECF8E" width="75" height="75" alt="Supabase"/></a>
 
 </div>
 
@@ -58,14 +58,14 @@ Company Context Demo
 
 ### 🤖 **3 Autonomous AI Agents**
 
+![Agents Demo](demo/agents-demo.gif)
+
 Agent Activity Feed
 
-![Agents Demo](demo/agents-demo.gif)
 - **Research Agent**: Gathers information
 - **Writer Agent**: Creates content  
 - **Analyst Agent**: Analyzes data
-
-All powered by **Mastra framework** + Anthropic Claude
+- All powered by **Mastra framework** + Anthropic Claude
 
 </td>
 <td width="50%">
@@ -118,7 +118,7 @@ Kanban Board
 
 <div align="center">
 
-![AgentBoard Architecture](demo/diagrams-architecture.gif)
+![AgentBoard Architecture](demo/diagrams-architecture.png)
 
 </div>
 
@@ -327,7 +327,9 @@ Thank you for **managed PostgreSQL** that just works. Your anonymous auth + Powe
 
 <a href="mailto:omaralzaidi2002@gmail.com"><img src="https://cdn.simpleicons.org/gmail/EA4335" width="22" height="22" alt="Email"/></a>
 <a href="https://github.com/OmerWaseem-Alzaidi"><img src="https://cdn.simpleicons.org/github/e6edf3" width="22" height="22" alt="GitHub"/></a>
-<a href="https://www.linkedin.com/in/omerwaseemal-zaidi"><img src="https://cdn.simpleicons.org/linkedin/58a6ff" width="22" height="22" alt="LinkedIn"/></a>
+<a href="https://www.linkedin.com/in/omerwaseemal-zaidi">
+  <img src="https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white" />
+</a>
 
 **Questions?** Open an issue or email me!
 
@@ -350,5 +352,3 @@ MIT License - see [LICENSE](LICENSE) for details
 <a href="https://supabase.com"><img src="https://cdn.simpleicons.org/supabase/3ECF8E" width="22" height="22" alt="Supabase"/></a>
 
 **[⬆ Back to Top](#-agentboard)**
-
-```
