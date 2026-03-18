@@ -58,10 +58,9 @@ Company Context Demo
 
 ### 🤖 **3 Autonomous AI Agents**
 
-![Agents Demo](demo/agents-demo.gif)
-
 Agent Activity Feed
 
+![Agents Demo](demo/agents-demo.gif)
 - **Research Agent**: Gathers information
 - **Writer Agent**: Creates content  
 - **Analyst Agent**: Analyzes data
