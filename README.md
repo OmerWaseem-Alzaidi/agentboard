@@ -72,6 +72,8 @@ Agent Activity Feed
 
 ### ⚡ **Real-Time Sync**
 
+![Company Knowledge Feature](demo/Multi-tab-real-time-sync.gif)
+
 PowerSync Offline
 
 - **Offline-first** via PowerSync
