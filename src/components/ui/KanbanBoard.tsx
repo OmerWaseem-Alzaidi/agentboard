@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { db, updateInSupabase } from '@/lib/powersync';
-import { getRecentlyDeletedIds } from '@/lib/deleted-tasks';
+import { supabase } from '@/lib/supabase';
+import { wasUserDeletedTask } from '@/lib/deleted-tasks';
 import type { Task } from '@/types';
 import { KanbanColumn } from './KanbanColumn.tsx';
 import { TaskDetailDialog } from './TaskDetailDialog.tsx';
@@ -30,6 +31,9 @@ const labelTagStyles: Record<string, string> = {
 };
 
 export function KanbanBoard() {
+  /** Stale PUT/sync can re-insert a row; only purge once per id per mount to avoid loops. */
+  const ghostPurgeScheduled = useRef<Set<string>>(new Set());
+
   const [tasks, setTasks] = useState<TasksByStatus>({
     todo: [],
     in_progress: [],
@@ -66,8 +70,25 @@ export function KanbanBoard() {
             all.push(result.rows.item(i) as Task);
           }
         }
-        const skip = getRecentlyDeletedIds();
-        bucketTasks(all.filter((t) => !skip.has(t.id)));
+        // Hide using localStorage-backed wasUserDeletedTask (30d). Do NOT use only
+        // getRecentlyDeletedIds() — that expires in ~30m and ghosts reappear when SQLite re-syncs.
+        for (const t of all) {
+          if (wasUserDeletedTask(t.id) && !ghostPurgeScheduled.current.has(t.id)) {
+            ghostPurgeScheduled.current.add(t.id);
+            const id = t.id;
+            void (async () => {
+              try {
+                await db.execute('DELETE FROM task_messages WHERE task_id = ?', [id]);
+                await db.execute('DELETE FROM tasks WHERE id = ?', [id]);
+                await supabase.from('task_messages').delete().eq('task_id', id);
+                await supabase.from('tasks').delete().eq('id', id);
+              } catch (e) {
+                console.error('Purge resurrected deleted task failed:', id, e);
+              }
+            })();
+          }
+        }
+        bucketTasks(all.filter((t) => !wasUserDeletedTask(t.id)));
       }
     })();
     return () => { cancelled = true; };

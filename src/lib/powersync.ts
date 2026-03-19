@@ -118,6 +118,10 @@ export async function initPowerSync() {
             const { error } = await supabase.from(table).upsert(record);
             if (error) throw error;
           } else if (op.op === 'PATCH') {
+            if (table === 'tasks' && wasUserDeletedTask(String(op.id))) {
+              await supabase.from('tasks').delete().eq('id', op.id);
+              continue;
+            }
             // For tasks: only update status/updated_at to avoid overwriting agent description.
             const patchData = table === 'tasks'
               ? { status: op.opData?.status, updated_at: op.opData?.updated_at }

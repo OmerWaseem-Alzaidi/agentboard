@@ -1,9 +1,10 @@
 /**
- * Tracks task IDs we've deleted. Persists to sessionStorage so they stay hidden
- * across page refresh (Supabase delete may fail; PowerSync re-syncs on reload).
+ * Tracks task IDs the user deleted on this device.
  *
- * Also persists to localStorage (longer TTL) so uploadData can skip stale PowerSync
- * PUTs that would otherwise upsert() deleted rows back (PGRST116 / resurrection bug).
+ * - **localStorage (30d):** `wasUserDeletedTask()` — MUST drive Kanban/UI filtering. If you only
+ *   use `getRecentlyDeletedIds()` (session ~30m), tasks reappear after the session window when
+ *   PowerSync re-downloads rows.
+ * - **sessionStorage:** short-lived mirror for compatibility; upload guards use `wasUserDeletedTask`.
  */
 const STORAGE_KEY = 'agentboard_recently_deleted';
 const PERSIST_DELETED_KEY = 'agentboard_user_deleted_task_ids';
