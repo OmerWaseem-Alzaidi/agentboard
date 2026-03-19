@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { db, updateInSupabase } from '@/lib/powersync';
-import { supabase } from '@/lib/supabase';
 import { getRecentlyDeletedIds } from '@/lib/deleted-tasks';
 import type { Task } from '@/types';
 import { KanbanColumn } from './KanbanColumn.tsx';
@@ -74,49 +73,8 @@ export function KanbanBoard() {
     return () => { cancelled = true; };
   }, [bucketTasks]);
 
-  // Realtime ONLY for task_messages (chat). Do NOT mirror `tasks` here — PowerSync already
-  // syncs tasks from Postgres. Having both caused duplicate INSERT/REPLACE + upload storms and
-  // amplified conflicts when Chrome + Safari (or tabs) touched the same global bucket.
-  useEffect(() => {
-    const channel = supabase
-      .channel('agent-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'task_messages' },
-        async (payload) => {
-          try {
-            console.log('[Realtime] task_messages event:', payload.eventType, payload.new ?? payload.old);
-            if (payload.eventType === 'DELETE') {
-              const oldId = (payload.old as { id?: string })?.id;
-              if (oldId) await db.execute('DELETE FROM task_messages WHERE id = ?', [oldId]);
-              return;
-            }
-            const row = payload.new as Record<string, unknown>;
-            if (!row?.id) return;
-            await db.execute(
-              `INSERT OR REPLACE INTO task_messages (id, task_id, sender, message, created_at)
-               VALUES (?, ?, ?, ?, ?)`,
-              [
-                row.id,
-                row.task_id ?? '',
-                row.sender ?? 'agent',
-                row.message ?? '',
-                row.created_at ?? new Date().toISOString(),
-              ]
-            );
-          } catch (err) {
-            console.error('Realtime task_messages sync error:', err);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('[Realtime] agent-updates channel:', status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  // No Supabase Realtime here. Both `tasks` and `task_messages` must flow only through PowerSync.
+  // Realtime + PowerSync both writing SQLite caused infinite UPDATE/upload loops (same row ping-pong).
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = allTasks.find(t => t.id === event.active.id);

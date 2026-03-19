@@ -60,12 +60,13 @@ export async function initPowerSync() {
         };
       },
     uploadData: async (database) => {
-      console.log('🔄 Upload function called!');
+      const debug = import.meta.env.DEV;
+      if (debug) console.log('🔄 Upload function called!');
 
       const transaction = await database.getNextCrudTransaction();
       if (!transaction) return;
 
-      console.log('📤 Uploading', transaction.crud.length, 'operations');
+      if (debug) console.log('📤 Uploading', transaction.crud.length, 'operations');
 
       try {
         for (const op of transaction.crud) {
@@ -78,7 +79,7 @@ export async function initPowerSync() {
             if (taskId) {
               const { data: taskExists } = await supabase.from('tasks').select('id').eq('id', taskId).maybeSingle();
               if (!taskExists) {
-                console.log('⏭️ Skipping task_messages for deleted task:', taskId);
+                if (debug) console.log('⏭️ Skipping task_messages for deleted task:', taskId);
                 continue;
               }
             }
@@ -89,7 +90,7 @@ export async function initPowerSync() {
             // otherwise upsert() the row back (406 from .single() on missing row was a clue).
             if (table === 'tasks' && wasUserDeletedTask(String(op.id))) {
               await supabase.from('tasks').delete().eq('id', op.id);
-              console.log('⏭️ Skipping PUT for user-deleted task (prevent resurrection):', op.id);
+              if (debug) console.log('⏭️ Skipping PUT for user-deleted task (prevent resurrection):', op.id);
               continue;
             }
             // For tasks: avoid overwriting newer agent updates with stale local data.
@@ -97,7 +98,7 @@ export async function initPowerSync() {
             if (table === 'tasks' && updatedAt) {
               const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).maybeSingle();
               if (existing?.updated_at && String(existing.updated_at) > String(updatedAt)) {
-                console.log('⏭️ Skipping stale task upload (remote is newer)');
+                if (debug) console.log('⏭️ Skipping stale task upload (remote is newer)');
                 continue;
               }
             }
@@ -116,7 +117,7 @@ export async function initPowerSync() {
           }
         }
         await transaction.complete();
-        console.log('✅ Upload complete!');
+        if (debug) console.log('✅ Upload complete!');
       } catch (error) {
         console.error('❌ Upload failed:', error);
         throw error; // Rethrow so PowerSync retries
