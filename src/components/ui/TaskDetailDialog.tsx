@@ -105,11 +105,17 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.from('tasks').select('description').eq('id', task.id).maybeSingle();
+        const { data: rows, error } = await supabase
+          .from('tasks')
+          .select('description')
+          .eq('id', task.id)
+          .limit(1);
         if (cancelled) return;
-        if (data?.description) {
-          setFetchedDescription(data.description);
-          await db.execute('UPDATE tasks SET description = ? WHERE id = ?', [data.description, task.id]);
+        if (error) throw error;
+        const row = rows?.[0];
+        if (row?.description) {
+          setFetchedDescription(row.description);
+          await db.execute('UPDATE tasks SET description = ? WHERE id = ?', [row.description, task.id]);
         }
       } finally {
         if (!cancelled) setFetchingDescription(false);

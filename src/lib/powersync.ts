@@ -77,8 +77,15 @@ export async function initPowerSync() {
           if (table === 'task_messages' && (op.op === 'PUT' || op.op === 'PATCH')) {
             const taskId = ((op.opData as Record<string, unknown>)?.task_id ?? (record as Record<string, unknown>).task_id) as string | undefined;
             if (taskId) {
-              const { data: taskExists } = await supabase.from('tasks').select('id').eq('id', taskId).maybeSingle();
-              if (!taskExists) {
+              // Use .limit(1) (array response), not .maybeSingle()/.single(): those use
+              // Accept: application/vnd.pgrst.object+json → 406 PGRST116 when the row is gone (e.g. after delete).
+              const { data: taskRows, error: taskLookupErr } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('id', taskId)
+                .limit(1);
+              if (taskLookupErr) throw taskLookupErr;
+              if (!taskRows?.length) {
                 if (debug) console.log('⏭️ Skipping task_messages for deleted task:', taskId);
                 continue;
               }
@@ -96,7 +103,13 @@ export async function initPowerSync() {
             // For tasks: avoid overwriting newer agent updates with stale local data.
             const updatedAt = (record as Record<string, unknown>).updated_at;
             if (table === 'tasks' && updatedAt) {
-              const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).maybeSingle();
+              const { data: existingRows, error: existingErr } = await supabase
+                .from(table)
+                .select('updated_at')
+                .eq('id', op.id)
+                .limit(1);
+              if (existingErr) throw existingErr;
+              const existing = existingRows?.[0];
               if (existing?.updated_at && String(existing.updated_at) > String(updatedAt)) {
                 if (debug) console.log('⏭️ Skipping stale task upload (remote is newer)');
                 continue;
