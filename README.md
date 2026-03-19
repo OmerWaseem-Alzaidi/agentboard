@@ -295,7 +295,7 @@ agentboard/
 
 ## 🎯 What's Next
 
-**If we win, we'll build:**
+**If I win, I'll build:**
 
 - **Voice-controlled task creation** (Mastra voice integration)
 - **Custom agent types** (let users create their own agents)

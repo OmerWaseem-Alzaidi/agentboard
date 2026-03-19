@@ -2,7 +2,7 @@
   "name": "agentboard",
   "license": "MIT",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,6 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@fontsource-variable/geist": "^5.2.8",
     "@journeyapps/wa-sqlite": "^1.5.0",
     "@mastra/core": "^0.24.9",
     "@powersync/web": "^1.36.0",
