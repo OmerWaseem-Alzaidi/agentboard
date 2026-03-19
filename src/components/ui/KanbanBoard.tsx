@@ -99,7 +99,7 @@ export function KanbanBoard() {
             // Fetch full row from Supabase to ensure we apply correct status and description.
             let merged = row;
             if (row.assigned_to) {
-              const { data } = await supabase.from('tasks').select('*').eq('id', row.id).single();
+              const { data } = await supabase.from('tasks').select('*').eq('id', row.id).maybeSingle();
               if (data) merged = data as Record<string, unknown>;
             }
 

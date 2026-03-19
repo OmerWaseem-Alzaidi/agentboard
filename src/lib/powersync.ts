@@ -1,6 +1,7 @@
 import { PowerSyncDatabase } from '@powersync/web';
 import { AppSchema } from './schema';
 import { supabase } from './supabase';
+import { wasUserDeletedTask } from './deleted-tasks';
 
 export const db = new PowerSyncDatabase({
   schema: AppSchema,
@@ -84,11 +85,18 @@ export async function initPowerSync() {
           }
 
           if (op.op === 'PUT') {
+            // Never resurrect tasks the user deleted: stale PUTs in the queue after DELETE would
+            // otherwise upsert() the row back (406 from .single() on missing row was a clue).
+            if (table === 'tasks' && wasUserDeletedTask(String(op.id))) {
+              await supabase.from('tasks').delete().eq('id', op.id);
+              console.log('⏭️ Skipping PUT for user-deleted task (prevent resurrection):', op.id);
+              continue;
+            }
             // For tasks: avoid overwriting newer agent updates with stale local data.
             const updatedAt = (record as Record<string, unknown>).updated_at;
             if (table === 'tasks' && updatedAt) {
-              const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).single();
-              if ((existing as { updated_at?: string } | null)?.updated_at && String((existing as { updated_at: string }).updated_at) > String(updatedAt)) {
+              const { data: existing } = await supabase.from(table).select('updated_at').eq('id', op.id).maybeSingle();
+              if (existing?.updated_at && String(existing.updated_at) > String(updatedAt)) {
                 console.log('⏭️ Skipping stale task upload (remote is newer)');
                 continue;
               }
