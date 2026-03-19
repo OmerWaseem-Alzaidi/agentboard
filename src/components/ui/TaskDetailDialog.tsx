@@ -105,7 +105,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.from('tasks').select('description').eq('id', task.id).single();
+        const { data } = await supabase.from('tasks').select('description').eq('id', task.id).maybeSingle();
         if (cancelled) return;
         if (data?.description) {
           setFetchedDescription(data.description);
