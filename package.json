@@ -4,9 +4,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-"scripts": {
+  "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:prod": "node scripts/check-production-bundle.mjs",
     "agent": "tsx agents/research-agent.ts",
     "agent:writer": "tsx agents/writer-agent.ts",
     "agent:analyst": "tsx agents/analyst-agent.ts",
