@@ -3,7 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { db, updateInSupabase } from '@/lib/powersync';
 import { supabase } from '@/lib/supabase';
-import { getRecentlyDeletedIds, wasRecentlyDeleted } from '@/lib/deleted-tasks';
+import { getRecentlyDeletedIds } from '@/lib/deleted-tasks';
 import type { Task } from '@/types';
 import { KanbanColumn } from './KanbanColumn.tsx';
 import { TaskDetailDialog } from './TaskDetailDialog.tsx';
@@ -74,62 +74,12 @@ export function KanbanBoard() {
     return () => { cancelled = true; };
   }, [bucketTasks]);
 
-  // Supabase Realtime: sync agent-side changes into local DB.
-  // Agents write directly to Supabase; PowerSync connector may have delay.
-  // Realtime ensures agent updates (status, description, chat) appear immediately.
+  // Realtime ONLY for task_messages (chat). Do NOT mirror `tasks` here — PowerSync already
+  // syncs tasks from Postgres. Having both caused duplicate INSERT/REPLACE + upload storms and
+  // amplified conflicts when Chrome + Safari (or tabs) touched the same global bucket.
   useEffect(() => {
     const channel = supabase
       .channel('agent-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
-        async (payload) => {
-          try {
-            console.log('[Realtime] tasks event:', payload.eventType, payload.new ?? payload.old);
-            if (payload.eventType === 'DELETE') {
-              const oldId = (payload.old as { id?: string })?.id;
-              if (oldId) await db.execute('DELETE FROM tasks WHERE id = ?', [oldId]);
-              return;
-            }
-            const row = payload.new as Record<string, unknown>;
-            if (!row?.id) return;
-            if (wasRecentlyDeleted(String(row.id))) return; // Don't re-insert deleted tasks
-
-            // For agent updates (assigned_to set): Realtime payload may omit status/description.
-            // Fetch full row from Supabase to ensure we apply correct status and description.
-            let merged = row;
-            if (row.assigned_to) {
-              const { data } = await supabase.from('tasks').select('*').eq('id', row.id).maybeSingle();
-              if (data) merged = data as Record<string, unknown>;
-            }
-
-            const status = merged.status != null && String(merged.status).trim()
-              ? merged.status
-              : 'todo';
-            const description = merged.description != null && String(merged.description).trim()
-              ? merged.description
-              : null;
-
-            await db.execute(
-              `INSERT OR REPLACE INTO tasks (id, title, description, status, label, assigned_to, created_by, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                merged.id,
-                merged.title ?? '',
-                description ?? null,
-                status,
-                merged.label ?? null,
-                merged.assigned_to ?? null,
-                merged.created_by ?? 'unknown',
-                merged.created_at ?? new Date().toISOString(),
-                merged.updated_at ?? new Date().toISOString(),
-              ]
-            );
-          } catch (err) {
-            console.error('Realtime tasks sync error:', err);
-          }
-        }
-      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'task_messages' },
