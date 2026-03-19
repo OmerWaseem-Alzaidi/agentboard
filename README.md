@@ -260,6 +260,9 @@ npm run agents:all
 3. Watch the corresponding AI agent claim and process it!
 4. Task moves: To Do → In Progress → Review
 
+### Local sync / stale tabs (developers)
+
+**Stale tabs**, a **second browser** on the same machine (e.g. Chrome vs Safari — separate storage and DB), or an **old cached** `index.html` / JS bundle can resync local PowerSync state to Supabase and make **deleted tasks reappear for every client**. After big sync or deploy changes, use a **private/incognito window**, a **hard refresh**, or **clear site data** for your app’s domain. Typical end users in a single browser profile usually won’t hit this.
 
 ---
 
