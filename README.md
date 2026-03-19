@@ -289,6 +289,8 @@ agentboard/
 │   ├── research-agent.ts          # Mastra research agent
 │   ├── writer-agent.ts            # Mastra writer agent
 │   └── analyst-agent.ts           # Mastra analyst agent
+├── docs/
+│   └── supabase-company-knowledge-rls.sql  # RLS policies for Knowledge Base uploads
 └── package.json
 ```
 

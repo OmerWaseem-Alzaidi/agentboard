@@ -136,8 +136,16 @@ export async function initPowerSync() {
         await transaction.complete();
         if (debug) console.log('✅ Upload complete!');
       } catch (error) {
-        console.error('❌ Upload failed:', error);
-        throw error; // Rethrow so PowerSync retries
+        const err = error as { code?: string; message?: string };
+        if (err?.code === '42501') {
+          console.error(
+            '❌ Upload blocked by Supabase RLS. For `company_knowledge`, run SQL in docs/supabase-company-knowledge-rls.sql',
+            err.message
+          );
+        } else {
+          console.error('❌ Upload failed:', error);
+        }
+        throw error; // Rethrow so PowerSync retries until policies are fixed
       }
     }
   });
